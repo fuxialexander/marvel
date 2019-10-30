@@ -1,8 +1,8 @@
-# ![nf-core/marvel](docs/images/nf-core-marvel_logo.png)
+# ![MARVEL](docs/images/nf-core-marvel_logo.png)
 
 **Multigranular Analysis of Regulatory Variants on the Epigenomic Landscape**.
 
-[![Build Status](https://travis-ci.com/nf-core/marvel.svg?branch=master)](https://travis-ci.com/nf-core/marvel)
+[![Build Status](https://travis-ci.com/MARVEL.svg?branch=master)](https://travis-ci.com/MARVEL)
 [![Nextflow](https://img.shields.io/badge/nextflow-%E2%89%A50.32.0-brightgreen.svg)](https://www.nextflow.io/)
 
 [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg)](http://bioconda.github.io/)
@@ -21,21 +21,21 @@ ii. Install one of [`docker`](https://docs.docker.com/engine/installation/), [`s
 iii. Download the pipeline and test it on a minimal dataset with a single command
 
 ```bash
-nextflow run nf-core/marvel -profile test,<docker/singularity/conda>
+nextflow run MARVEL -profile test,<docker/singularity/conda>
 ```
 
 iv. Start running your own analysis!
 
 <!-- TODO nf-core: Update the default command above used to run the pipeline -->
 ```bash
-nextflow run nf-core/marvel -profile <docker/singularity/conda> --reads '*_R{1,2}.fastq.gz' --genome GRCh37
+nextflow run MARVEL -profile <docker/singularity/conda> --reads '*_R{1,2}.fastq.gz' --genome GRCh37
 ```
 
 See [usage docs](docs/usage.md) for all of the available options when running the pipeline.
 
 ## Documentation
 
-The nf-core/marvel pipeline comes with documentation about the pipeline, found in the `docs/` directory:
+The MARVEL pipeline comes with documentation about the pipeline, found in the `docs/` directory:
 
 1. [Installation](https://nf-co.re/usage/installation)
 2. Pipeline configuration
@@ -50,18 +50,18 @@ The nf-core/marvel pipeline comes with documentation about the pipeline, found i
 
 ## Credits
 
-nf-core/marvel was originally written by Alexander Fu Xi.
+MARVEL was originally written by Alexander Fu Xi.
 
 ## Contributions and Support
 
 If you would like to contribute to this pipeline, please see the [contributing guidelines](.github/CONTRIBUTING.md).
 
-For further information or help, don't hesitate to get in touch on [Slack](https://nfcore.slack.com/channels/nf-core/marvel) (you can join with [this invite](https://nf-co.re/join/slack)).
+For further information or help, don't hesitate to get in touch on [Slack](https://nfcore.slack.com/channels/MARVEL) (you can join with [this invite](https://nf-co.re/join/slack)).
 
 ## Citation
 
 <!-- TODO nf-core: Add citation for pipeline after first release. Uncomment lines below and update Zenodo doi. -->
-<!-- If you use  nf-core/marvel for your analysis, please cite it using the following doi: [10.5281/zenodo.XXXXXX](https://doi.org/10.5281/zenodo.XXXXXX) -->
+<!-- If you use  MARVEL for your analysis, please cite it using the following doi: [10.5281/zenodo.XXXXXX](https://doi.org/10.5281/zenodo.XXXXXX) -->
 
 You can cite the `nf-core` pre-print as follows:  
 Ewels PA, Peltzer A, Fillinger S, Alneberg JA, Patel H, Wilm A, Garcia MU, Di Tommaso P, Nahnsen S. **nf-core: Community curated bioinformatics pipelines**. *bioRxiv*. 2019. p. 610741. [doi: 10.1101/610741](https://www.biorxiv.org/content/10.1101/610741v1).

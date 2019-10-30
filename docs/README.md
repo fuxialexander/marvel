@@ -1,6 +1,6 @@
-# nf-core/marvel: Documentation
+# MARVEL: Documentation
 
-The nf-core/marvel documentation is split into the following files:
+The MARVEL documentation is split into the following files:
 
 1. [Installation](https://nf-co.re/usage/installation)
 2. Pipeline configuration
