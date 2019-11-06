@@ -37,4 +37,4 @@ Pipeline Configuration:
 
 --
 MARVEL
-https://github.com/fuxialexander/MARVEL
+https://github.com/fuxialexander/marvel

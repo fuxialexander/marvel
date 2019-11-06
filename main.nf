@@ -1,13 +1,14 @@
 #!/usr/bin/env nextflow
 /*
 ========================================================================================
-                         nf-core/marvel
+                         MARVEL
 ========================================================================================
- nf-core/marvel Analysis Pipeline.
+ MARVEL Analysis Pipeline.
  #### Homepage / Documentation
- https://github.com/nf-core/marvel
+ https://github.com/fuxialexander/marvel
 ----------------------------------------------------------------------------------------
 */
+nextflow.preview.dsl=2
 
 def helpMessage() {
     // TODO nf-core: Add to this help message with new command line parameters
@@ -18,7 +19,7 @@ def helpMessage() {
 
     The typical command for running the pipeline is as follows:
 
-    nextflow run nf-core/marvel --reads '*_R{1,2}.fastq.gz' -profile docker
+    nextflow run marvel --reads '*_R{1,2}.fastq.gz' -profile docker
 
     Mandatory arguments:
       --reads                       Path to input data (must be surrounded with quotes)
@@ -156,8 +157,8 @@ def create_workflow_summary(summary) {
     yaml_file.text  = """
     id: 'nf-core-marvel-summary'
     description: " - this information is collected when the pipeline is started."
-    section_name: 'nf-core/marvel Workflow Summary'
-    section_href: 'https://github.com/nf-core/marvel'
+    section_name: 'MARVEL Workflow Summary'
+    section_href: 'https://github.com/fuxialexander/marvel'
     plot_type: 'html'
     data: |
         <dl class=\"dl-horizontal\">
@@ -193,9 +194,12 @@ process get_software_versions {
     """
 }
 
+
 /*
  * STEP 1 - FastQC
  */
+
+ 
 process fastqc {
     tag "$name"
     label 'process_medium'
@@ -265,9 +269,9 @@ process output_documentation {
 workflow.onComplete {
 
     // Set up the e-mail variables
-    def subject = "[nf-core/marvel] Successful: $workflow.runName"
+    def subject = "[MARVEL] Successful: $workflow.runName"
     if (!workflow.success) {
-      subject = "[nf-core/marvel] FAILED: $workflow.runName"
+      subject = "[MARVEL] FAILED: $workflow.runName"
     }
     def email_fields = [:]
     email_fields['version'] = workflow.manifest.version
@@ -300,12 +304,12 @@ workflow.onComplete {
         if (workflow.success) {
             mqc_report = multiqc_report.getVal()
             if (mqc_report.getClass() == ArrayList) {
-                log.warn "[nf-core/marvel] Found multiple reports from process 'multiqc', will use only one"
+                log.warn "[MARVEL] Found multiple reports from process 'multiqc', will use only one"
                 mqc_report = mqc_report[0]
             }
         }
     } catch (all) {
-        log.warn "[nf-core/marvel] Could not attach MultiQC report to summary email"
+        log.warn "[MARVEL] Could not at  tach MultiQC report to summary email"
     }
 
     // Check if we are only sending emails on failure
@@ -337,11 +341,11 @@ workflow.onComplete {
           if ( params.plaintext_email ){ throw GroovyException('Send plaintext e-mail, not HTML') }
           // Try to send HTML e-mail using sendmail
           [ 'sendmail', '-t' ].execute() << sendmail_html
-          log.info "[nf-core/marvel] Sent summary e-mail to $email_address (sendmail)"
+          log.info "[MARVEL] Sent summary e-mail to $email_address (sendmail)"
         } catch (all) {
           // Catch failures and try with plaintext
           [ 'mail', '-s', subject, email_address ].execute() << email_txt
-          log.info "[nf-core/marvel] Sent summary e-mail to $email_address (mail)"
+          log.info "[MARVEL] Sent summary e-mail to $email_address (mail)"
         }
     }
 
@@ -367,10 +371,10 @@ workflow.onComplete {
     }
 
     if (workflow.success) {
-        log.info "${c_purple}[nf-core/marvel]${c_green} Pipeline completed successfully${c_reset}"
+        log.info "${c_purple}[MARVEL]${c_green} Pipeline completed successfully${c_reset}"
     } else {
         checkHostname()
-        log.info "${c_purple}[nf-core/marvel]${c_red} Pipeline completed with errors${c_reset}"
+        log.info "${c_purple}[MARVEL]${c_red} Pipeline completed with errors${c_reset}"
     }
 
 }
@@ -380,22 +384,14 @@ def nfcoreHeader(){
     // Log colors ANSI codes
     c_reset = params.monochrome_logs ? '' : "\033[0m";
     c_dim = params.monochrome_logs ? '' : "\033[2m";
-    c_black = params.monochrome_logs ? '' : "\033[0;30m";
-    c_green = params.monochrome_logs ? '' : "\033[0;32m";
-    c_yellow = params.monochrome_logs ? '' : "\033[0;33m";
-    c_blue = params.monochrome_logs ? '' : "\033[0;34m";
-    c_purple = params.monochrome_logs ? '' : "\033[0;35m";
-    c_cyan = params.monochrome_logs ? '' : "\033[0;36m";
     c_white = params.monochrome_logs ? '' : "\033[0;37m";
 
-    return """    -${c_dim}--------------------------------------------------${c_reset}-
-                                            ${c_green},--.${c_black}/${c_green},-.${c_reset}
-    ${c_blue}        ___     __   __   __   ___     ${c_green}/,-._.--~\'${c_reset}
-    ${c_blue}  |\\ | |__  __ /  ` /  \\ |__) |__         ${c_yellow}}  {${c_reset}
-    ${c_blue}  | \\| |       \\__, \\__/ |  \\ |___     ${c_green}\\`-._,-`-,${c_reset}
-                                            ${c_green}`._,._,\'${c_reset}
-    ${c_purple}  nf-core/marvel v${workflow.manifest.version}${c_reset}
-    -${c_dim}--------------------------------------------------${c_reset}-
+    return """_${c_dim}_______________________________________________${c_reset}_
+    ${c_white}_   _    __     ____   _    _   _____    _${c_reset}
+    ${c_white}/  /|    / |    /    ) |   /    /    '   /${c_reset}
+${c_dim}---${c_reset}${c_white}/| /${c_reset}${c_dim}-${c_reset}${c_white}|${c_reset}${c_dim}---${c_reset}${c_white}/__|${c_reset}${c_dim}---${c_reset}${c_white}/___ /${c_reset}${c_dim}--${c_reset}${c_white}|${c_reset}${c_dim}--${c_reset}${c_white}/${c_reset}${c_dim}----${c_reset}${c_white}/__${c_reset}${c_dim}------${c_reset}${c_white}/${c_reset}${c_dim}----${c_reset}
+  ${c_white}/ |/  |  /   |  /    |   | /    /        /${c_reset}
+${c_dim}_${c_reset}${c_white}/${c_reset}${c_dim}__${c_reset}${c_white}/${c_reset}${c_dim}___${c_reset}${c_white}|${c_reset}${c_dim}_${c_reset}${c_white}/${c_reset}${c_dim}____${c_reset}${c_white}|${c_reset}${c_dim}_${c_reset}${c_white}/${c_reset}${c_dim}_____${c_reset}${c_white}|${c_reset}${c_dim}___${c_reset}${c_white}|/${c_reset}${c_dim}____${c_reset}${c_white}/____${c_reset} ${c_dim}___${c_reset}${c_white}/____/${c_reset}${c_dim}_${c_reset}
     """.stripIndent()
 }
 
@@ -410,10 +406,10 @@ def checkHostname(){
             hnames.each { hname ->
                 if (hostname.contains(hname) && !workflow.profile.contains(prof)) {
                     log.error "====================================================\n" +
-                            "  ${c_red}WARNING!${c_reset} You are running with `-profile $workflow.profile`\n" +
-                            "  but your machine hostname is ${c_white}'$hostname'${c_reset}\n" +
-                            "  ${c_yellow_bold}It's highly recommended that you use `-profile $prof${c_reset}`\n" +
-                            "============================================================"
+                        "  ${c_red}WARNING!${c_reset} You are running with `-profile $workflow.profile`\n" +
+                        "  but your machine hostname is ${c_white}'$hostname'${c_reset}\n" +
+                        "  ${c_yellow_bold}It's highly recommended that you use `-profile $prof${c_reset}`\n" +
+                        "============================================================"
                 }
             }
         }
