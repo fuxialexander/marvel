@@ -11,4 +11,4 @@ Please fill in the appropriate checklist below (delete whatever is not relevant)
  - [ ] `CHANGELOG.md` is updated
  - [ ] `README.md` is updated
 
-**Learn more about contributing:** https://github.com/fuxialexander/MARVEL/tree/master/.github/CONTRIBUTING.md
+**Learn more about contributing:** https://github.com/fuxialexander/marvel/tree/master/.github/CONTRIBUTING.md

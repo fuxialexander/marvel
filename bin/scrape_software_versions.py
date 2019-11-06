@@ -36,7 +36,7 @@ for k in results:
 print ('''
 id: 'software_versions'
 section_name: 'MARVEL Software Versions'
-section_href: 'https://github.com/fuxialexander/MARVEL'
+section_href: 'https://github.com/fuxialexander/marvel'
 plot_type: 'html'
 description: 'are collected at run time from the software output.'
 data: |

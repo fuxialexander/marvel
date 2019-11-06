@@ -15,10 +15,10 @@ If you'd like to write some code for MARVEL, the standard workflow
 is as follows:
 
 1. Check that there isn't already an issue about your idea in the
-   [MARVEL issues](https://github.com/fuxialexander/MARVEL/issues) to avoid
+   [MARVEL issues](https://github.com/fuxialexander/marvel/issues) to avoid
    duplicating work.
     * If there isn't one already, please create one so that others know you're working on this
-2. Fork the [MARVEL repository](https://github.com/fuxialexander/MARVEL) to your GitHub account
+2. Fork the [MARVEL repository](https://github.com/fuxialexander/marvel) to your GitHub account
 3. Make the necessary changes / additions within your forked repository
 4. Submit a Pull Request against the `dev` branch and wait for the code to be reviewed and merged.
 
@@ -44,4 +44,4 @@ If there are any failures then the automated tests fail.
 These tests are run both with the latest available version of Nextflow and also the minimum required version that is stated in the pipeline code.
 
 ## Getting help
-For further information/help, please consult the [MARVEL documentation](https://github.com/fuxialexander/MARVEL#documentation) or the [author](fuxialexander@gmail.com)
+For further information/help, please consult the [MARVEL documentation](https://github.com/fuxialexander/marvel#documentation) or the [author](fuxialexander@gmail.com)
