@@ -60,7 +60,7 @@ if (params.help) {
 if (params.genomes && params.genome && !params.genomes.containsKey(params.genome)) {
     exit 1, "The provided genome '${params.genome}' is not available in the iGenomes file. Currently the available genomes are ${params.genomes.keySet().join(", ")}"
 }
-
+params.fasta = params.genome ? params.genomes[ params.genome ].fasta ?: false : false
 // TODO nf-core: Add any reference files that are needed
 // Configurable reference genomes
 //
@@ -69,8 +69,6 @@ if (params.genomes && params.genome && !params.genomes.containsKey(params.genome
 //   input:
 //   file fasta from ch_fasta
 //
-params.fasta = params.genome ? params.genomes[ params.genome ].fasta ?: false : false
-if (params.fasta) { ch_fasta = file(params.fasta, checkIfExists: true) }
 
 // Has the run name been specified by the user?
 //  this has the bonus effect of catching both -name and --name
@@ -96,26 +94,30 @@ ch_output_docs = file("$baseDir/docs/output.md", checkIfExists: true)
 /*
  * Create a channel for input read files
  */
-if (params.readPaths) {
-    if (params.singleEnd) {
-        Channel
-            .from(params.readPaths)
-            .map { row -> [ row[0], [ file(row[1][0], checkIfExists: true) ] ] }
-            .ifEmpty { exit 1, "params.readPaths was empty - no input files supplied" }
-            .into { read_files_fastqc; read_files_trimming }
-    } else {
-        Channel
-            .from(params.readPaths)
-            .map { row -> [ row[0], [ file(row[1][0], checkIfExists: true), file(row[1][1], checkIfExists: true) ] ] }
-            .ifEmpty { exit 1, "params.readPaths was empty - no input files supplied" }
-            .into { read_files_fastqc; read_files_trimming }
-    }
-} else {
-    Channel
-        .fromFilePairs( params.reads, size: params.singleEnd ? 1 : 2 )
-        .ifEmpty { exit 1, "Cannot find any reads matching: ${params.reads}\nNB: Path needs to be enclosed in quotes!\nIf this is single-end data, please specify --singleEnd on the command line." }
-        .into { read_files_fastqc; read_files_trimming }
-}
+
+
+
+
+// if (params.readPaths) {
+//     if (params.singleEnd) {
+//         Channel
+//             .from(params.readPaths)
+//             .map { row -> [ row[0], [ file(row[1][0], checkIfExists: true) ] ] }
+//             .ifEmpty { exit 1, "params.readPaths was empty - no input files supplied" }
+//             .into { read_files_fastqc; read_files_trimming }
+//     } else {
+//         Channel
+//             .from(params.readPaths)
+//             .map { row -> [ row[0], [ file(row[1][0], checkIfExists: true), file(row[1][1], checkIfExists: true) ] ] }
+//             .ifEmpty { exit 1, "params.readPaths was empty - no input files supplied" }
+//             .into { read_files_fastqc; read_files_trimming }
+//     }
+// } else {
+//     Channel
+//         .fromFilePairs( params.reads, size: params.singleEnd ? 1 : 2 )
+//         .ifEmpty { exit 1, "Cannot find any reads matching: ${params.reads}\nNB: Path needs to be enclosed in quotes!\nIf this is single-end data, please specify --singleEnd on the command line." }
+//         .into { read_files_fastqc; read_files_trimming }
+// }
 
 // Header log info
 log.info nfcoreHeader()
@@ -123,9 +125,9 @@ def summary = [:]
 if (workflow.revision) summary['Pipeline Release'] = workflow.revision
 summary['Run Name']         = custom_runName ?: workflow.runName
 // TODO nf-core: Report custom parameters here
-summary['Reads']            = params.reads
+// summary['Reads']            = params.reads
 summary['Fasta Ref']        = params.fasta
-summary['Data Type']        = params.singleEnd ? 'Single-End' : 'Paired-End'
+// summary['Data Type']        = params.singleEnd ? 'Single-End' : 'Paired-End'
 summary['Max Resources']    = "$params.max_memory memory, $params.max_cpus cpus, $params.max_time time per job"
 if (workflow.containerEngine) summary['Container'] = "$workflow.containerEngine - $workflow.container"
 summary['Output dir']       = params.outdir
@@ -188,7 +190,9 @@ process get_software_versions {
     """
     echo $workflow.manifest.version > v_pipeline.txt
     echo $workflow.nextflow.version > v_nextflow.txt
-    fastqc --version > v_fastqc.txt
+    samtools --version | head -n 1 > v_samtools.txt
+    bcftools --version | head -n 1 > v_bcftools.txt
+    // fastqc --version > v_fastqc.txt
     multiqc --version > v_multiqc.txt
     scrape_software_versions.py &> software_versions_mqc.yaml
     """
@@ -196,71 +200,201 @@ process get_software_versions {
 
 
 /*
- * STEP 1 - FastQC
+ * STEP 1 - Get Region Fasta
  */
 
- 
-process fastqc {
-    tag "$name"
-    label 'process_medium'
-    publishDir "${params.outdir}/fastqc", mode: 'copy',
-        saveAs: { filename -> filename.indexOf(".zip") > 0 ? "zips/$filename" : "$filename" }
+include gunzip as gunzip_ref_fasta from './modules/gunzip' params(pubdir: "${params.outdir}/sequences")
+include index_fasta as index_fasta_ref from './modules/index_fasta' params(pubdir: "${params.outdir}/sequences")
+include index_fasta as index_fasta_regions from './modules/index_fasta' params(pubdir: "${params.outdir}/sequences")
+
+process get_region_ref_fasta {
+    tag "${name}"
+    label 'process_light'
+    publishDir "${params.outdir}/sequences"
 
     input:
-    set val(name), file(reads) from read_files_fastqc
+    file genome_fa
+    tuple val(name), file(bed)
 
     output:
-    file "*_fastqc.{zip,html}" into fastqc_results
+    file "${name}.fa"
 
     script:
     """
-    fastqc --quiet --threads $task.cpus $reads
+    samtools faidx $genome_fa > ${genome_fa}.fai && \
+    bedtools getfasta -fullHeader -fi $genome_fa -bed $bed -fo ${name}.fa
     """
 }
+
+process count_nucleotide_frequency {
+    tag "${name}"
+    label 'process_light'
+    publishDir "${params.outdir}/sequences"
+
+    input:
+    tuple val(name), file(fasta)
+
+    output:
+    file "${name}.nuc_freq.txt"
+
+    script:
+    """
+    count_fasta_base.py -o ATCG <(grep -v ">" $fasta | cat <(echo ">") -) > ${name}.nuc_freq.txt
+    """
+}
+
+process get_hocomoco_motif_in_jaspar_format {
+    tag "${name}"
+    label 'process_light'
+    publishDir "${params.outdir}/motifs"
+
+    output:
+    file "*.pwm"
+    file "motif_index.txt"
+    file "motif_symbol.txt"
+    // TODO: Consider add option to use HOCOMOCO Core, or even other motif databases
+
+    script:
+    """
+    get_hocomoco_motif.sh
+    """
+}
+
+process chunkify_regions {
+    tag "${name}"
+    label 'process_light'
+    publishDir "${params.outdir}/regions/chunks"
+
+    input:
+    tuple val(name), file(regions)
+
+    output:
+    file "${name}.chunk_*.bed"
+
+    script:
+    """
+    split --additional-suffix=.bed -l ${params.chunk_size} $regions ${name}.chunk_
+    """
+}
+
+process get_region_chunk_vcf {
+    tag "${region_chunk.baseName}"
+    label 'process_light'
+    publishDir "${params.outdir}/variants/chunks"
+
+    input:
+    file vcf
+    each region_chunk
+
+    output:
+    file "${region_chunk.baseName}.vcf*"
+
+    script:
+    """
+    cat <(bcftools view -h $vcf) \
+        <(bcftools view -H -Ov -R $region_chunk $vcf | sort -k1,1d -k2,2n ) | \
+          bgzip > ${region_chunk.baseName}.vcf.gz && \
+          tabix -f -p vcf ${region_chunk.baseName}.vcf.gz
+    """
+}
+
+process scan_and_test_region_chunk {
+  tag "${region_chunk.baseName}"
+  label 'process_heavy'
+  publishDir "${params.outdir}/variants/chunks"
+
+  input:
+  file vcf
+  each region_chunk
+
+  output:
+  file "${region_chunk.baseName}.npz"
+
+  script:
+  """
+  for sample in `bcftools view -h $vcf | grep "^#CHROM" | cut -f10-`; do
+    awk '{print $1":"($2+1)"-"$3}' $region_chunk | xargs samtools faidx ${params.outdir}/sequences/${params.regions.baseName}.fa | bcftools consensus $vcf -s $sample -o $vcf.$sample.fa
+  done
+  """
+}
+
 
 /*
  * STEP 2 - MultiQC
  */
-process multiqc {
-    publishDir "${params.outdir}/MultiQC", mode: 'copy'
+// process multiqc {
+//     publishDir "${params.outdir}/MultiQC", mode: 'copy'
 
-    input:
-    file multiqc_config from ch_multiqc_config
-    // TODO nf-core: Add in log files from your new processes for MultiQC to find!
-    file ('fastqc/*') from fastqc_results.collect().ifEmpty([])
-    file ('software_versions/*') from software_versions_yaml.collect()
-    file workflow_summary from create_workflow_summary(summary)
+//     input:
+//     file multiqc_config from ch_multiqc_config
+//     // TODO nf-core: Add in log files from your new processes for MultiQC to find!
+//     file ('fastqc/*') from fastqc_results.collect().ifEmpty([])
+//     file ('software_versions/*') from software_versions_yaml.collect()
+//     file workflow_summary from create_workflow_summary(summary)
 
-    output:
-    file "*multiqc_report.html" into multiqc_report
-    file "*_data"
-    file "multiqc_plots"
+//     output:
+//     file "*multiqc_report.html" into multiqc_report
+//     file "*_data"
+//     file "multiqc_plots"
 
-    script:
-    rtitle = custom_runName ? "--title \"$custom_runName\"" : ''
-    rfilename = custom_runName ? "--filename " + custom_runName.replaceAll('\\W','_').replaceAll('_+','_') + "_multiqc_report" : ''
-    // TODO nf-core: Specify which MultiQC modules to use with -m for a faster run time
-    """
-    multiqc -f $rtitle $rfilename --config $multiqc_config .
-    """
-}
+//     script:
+//     rtitle = custom_runName ? "--title \"$custom_runName\"" : ''
+//     rfilename = custom_runName ? "--filename " + custom_runName.replaceAll('\\W','_').replaceAll('_+','_') + "_multiqc_report" : ''
+//     // TODO nf-core: Specify which MultiQC modules to use with -m for a faster run time
+//     """
+//     multiqc -f $rtitle $rfilename --config $multiqc_config .
+//     """
+// }
 
 /*
  * STEP 3 - Output Description HTML
  */
-process output_documentation {
-    publishDir "${params.outdir}/pipeline_info", mode: 'copy'
+// process output_documentation {
+//     publishDir "${params.outdir}/pipeline_info", mode: 'copy'
 
-    input:
-    file output_docs from ch_output_docs
+//     input:
+//     file output_docs from ch_output_docs
 
-    output:
-    file "results_description.html"
+//     output:
+//     file "results_description.html"
 
-    script:
-    """
-    markdown_to_html.r $output_docs results_description.html
-    """
+//     script:
+//     """
+//     markdown_to_html.r $output_docs results_description.html
+//     """
+// }
+
+  
+workflow {
+  regions_bed = Channel
+              .fromPath( params.regions )
+              .map { file -> tuple(file.baseName, file) } 
+  
+  vcf = Channel.fromPath( params.vcf )
+              
+
+  compressedReference = hasExtension(params.fasta, 'gz') 
+
+  if (params.fasta) { 
+    if (compressedReference) {
+      ch_fasta = gunzip_ref_fasta(file(params.fasta, checkIfExists: true))
+    } else {
+      ch_fasta = file(params.fasta, checkIfExists: true)
+    }
+  }
+
+  index_fasta_ref(ch_fasta)
+  regions_fasta = get_region_ref_fasta(ch_fasta, regions_bed)
+  index_fasta_regions(regions_fasta)
+  regions_fasta = regions_fasta.map { file -> tuple(file.baseName, file) }
+  nuc_freq = count_nucleotide_frequency(regions_fasta)
+  get_hocomoco_motif_in_jaspar_format()
+  chunk_notation = ~/.chunk_\w+.vcf/
+  region_chunks = chunkify_regions(regions_bed).flatMap()
+  regions_chunks_vcf = get_region_chunk_vcf(vcf, region_chunks).flatMap().filter{it.toString().endsWith("gz")}
+  // .map { file -> tuple (file.baseName - chunk_notation, file)}
+  // regions_chunks_fasta = get_region_sample_fasta(regions_chunks_vcf)
+  
 }
 
 /*
@@ -269,95 +403,95 @@ process output_documentation {
 workflow.onComplete {
 
     // Set up the e-mail variables
-    def subject = "[MARVEL] Successful: $workflow.runName"
-    if (!workflow.success) {
-      subject = "[MARVEL] FAILED: $workflow.runName"
-    }
-    def email_fields = [:]
-    email_fields['version'] = workflow.manifest.version
-    email_fields['runName'] = custom_runName ?: workflow.runName
-    email_fields['success'] = workflow.success
-    email_fields['dateComplete'] = workflow.complete
-    email_fields['duration'] = workflow.duration
-    email_fields['exitStatus'] = workflow.exitStatus
-    email_fields['errorMessage'] = (workflow.errorMessage ?: 'None')
-    email_fields['errorReport'] = (workflow.errorReport ?: 'None')
-    email_fields['commandLine'] = workflow.commandLine
-    email_fields['projectDir'] = workflow.projectDir
-    email_fields['summary'] = summary
-    email_fields['summary']['Date Started'] = workflow.start
-    email_fields['summary']['Date Completed'] = workflow.complete
-    email_fields['summary']['Pipeline script file path'] = workflow.scriptFile
-    email_fields['summary']['Pipeline script hash ID'] = workflow.scriptId
-    if (workflow.repository) email_fields['summary']['Pipeline repository Git URL'] = workflow.repository
-    if (workflow.commitId) email_fields['summary']['Pipeline repository Git Commit'] = workflow.commitId
-    if (workflow.revision) email_fields['summary']['Pipeline Git branch/tag'] = workflow.revision
-    if (workflow.container) email_fields['summary']['Docker image'] = workflow.container
-    email_fields['summary']['Nextflow Version'] = workflow.nextflow.version
-    email_fields['summary']['Nextflow Build'] = workflow.nextflow.build
-    email_fields['summary']['Nextflow Compile Timestamp'] = workflow.nextflow.timestamp
+    // def subject = "[MARVEL] Successful: $workflow.runName"
+    // if (!workflow.success) {
+    //   subject = "[MARVEL] FAILED: $workflow.runName"
+    // }
+    // def email_fields = [:]
+    // email_fields['version'] = workflow.manifest.version
+    // email_fields['runName'] = custom_runName ?: workflow.runName
+    // email_fields['success'] = workflow.success
+    // email_fields['dateComplete'] = workflow.complete
+    // email_fields['duration'] = workflow.duration
+    // email_fields['exitStatus'] = workflow.exitStatus
+    // email_fields['errorMessage'] = (workflow.errorMessage ?: 'None')
+    // email_fields['errorReport'] = (workflow.errorReport ?: 'None')
+    // email_fields['commandLine'] = workflow.commandLine
+    // email_fields['projectDir'] = workflow.projectDir
+    // email_fields['summary'] = summary
+    // email_fields['summary']['Date Started'] = workflow.start
+    // email_fields['summary']['Date Completed'] = workflow.complete
+    // email_fields['summary']['Pipeline script file path'] = workflow.scriptFile
+    // email_fields['summary']['Pipeline script hash ID'] = workflow.scriptId
+    // if (workflow.repository) email_fields['summary']['Pipeline repository Git URL'] = workflow.repository
+    // if (workflow.commitId) email_fields['summary']['Pipeline repository Git Commit'] = workflow.commitId
+    // if (workflow.revision) email_fields['summary']['Pipeline Git branch/tag'] = workflow.revision
+    // if (workflow.container) email_fields['summary']['Docker image'] = workflow.container
+    // email_fields['summary']['Nextflow Version'] = workflow.nextflow.version
+    // email_fields['summary']['Nextflow Build'] = workflow.nextflow.build
+    // email_fields['summary']['Nextflow Compile Timestamp'] = workflow.nextflow.timestamp
 
-    // TODO nf-core: If not using MultiQC, strip out this code (including params.maxMultiqcEmailFileSize)
-    // On success try attach the multiqc report
-    def mqc_report = null
-    try {
-        if (workflow.success) {
-            mqc_report = multiqc_report.getVal()
-            if (mqc_report.getClass() == ArrayList) {
-                log.warn "[MARVEL] Found multiple reports from process 'multiqc', will use only one"
-                mqc_report = mqc_report[0]
-            }
-        }
-    } catch (all) {
-        log.warn "[MARVEL] Could not at  tach MultiQC report to summary email"
-    }
+    // // TODO nf-core: If not using MultiQC, strip out this code (including params.maxMultiqcEmailFileSize)
+    // // On success try attach the multiqc report
+    // def mqc_report = null
+    // try {
+    //     if (workflow.success) {
+    //         mqc_report = multiqc_report.getVal()
+    //         if (mqc_report.getClass() == ArrayList) {
+    //             log.warn "[MARVEL] Found multiple reports from process 'multiqc', will use only one"
+    //             mqc_report = mqc_report[0]
+    //         }
+    //     }
+    // } catch (all) {
+    //     log.warn "[MARVEL] Could not at  tach MultiQC report to summary email"
+    // }
 
-    // Check if we are only sending emails on failure
-    email_address = params.email
-    if (!params.email && params.email_on_fail && !workflow.success) {
-        email_address = params.email_on_fail
-    }
+    // // Check if we are only sending emails on failure
+    // email_address = params.email
+    // if (!params.email && params.email_on_fail && !workflow.success) {
+    //     email_address = params.email_on_fail
+    // }
 
-    // Render the TXT template
-    def engine = new groovy.text.GStringTemplateEngine()
-    def tf = new File("$baseDir/assets/email_template.txt")
-    def txt_template = engine.createTemplate(tf).make(email_fields)
-    def email_txt = txt_template.toString()
+    // // Render the TXT template
+    // def engine = new groovy.text.GStringTemplateEngine()
+    // def tf = new File("$baseDir/assets/email_template.txt")
+    // def txt_template = engine.createTemplate(tf).make(email_fields)
+    // def email_txt = txt_template.toString()
 
-    // Render the HTML template
-    def hf = new File("$baseDir/assets/email_template.html")
-    def html_template = engine.createTemplate(hf).make(email_fields)
-    def email_html = html_template.toString()
+    // // Render the HTML template
+    // def hf = new File("$baseDir/assets/email_template.html")
+    // def html_template = engine.createTemplate(hf).make(email_fields)
+    // def email_html = html_template.toString()
 
-    // Render the sendmail template
-    def smail_fields = [ email: email_address, subject: subject, email_txt: email_txt, email_html: email_html, baseDir: "$baseDir", mqcFile: mqc_report, mqcMaxSize: params.maxMultiqcEmailFileSize.toBytes() ]
-    def sf = new File("$baseDir/assets/sendmail_template.txt")
-    def sendmail_template = engine.createTemplate(sf).make(smail_fields)
-    def sendmail_html = sendmail_template.toString()
+    // // Render the sendmail template
+    // def smail_fields = [ email: email_address, subject: subject, email_txt: email_txt, email_html: email_html, baseDir: "$baseDir", mqcFile: mqc_report, mqcMaxSize: params.maxMultiqcEmailFileSize.toBytes() ]
+    // def sf = new File("$baseDir/assets/sendmail_template.txt")
+    // def sendmail_template = engine.createTemplate(sf).make(smail_fields)
+    // def sendmail_html = sendmail_template.toString()
 
-    // Send the HTML e-mail
-    if (email_address) {
-        try {
-          if ( params.plaintext_email ){ throw GroovyException('Send plaintext e-mail, not HTML') }
-          // Try to send HTML e-mail using sendmail
-          [ 'sendmail', '-t' ].execute() << sendmail_html
-          log.info "[MARVEL] Sent summary e-mail to $email_address (sendmail)"
-        } catch (all) {
-          // Catch failures and try with plaintext
-          [ 'mail', '-s', subject, email_address ].execute() << email_txt
-          log.info "[MARVEL] Sent summary e-mail to $email_address (mail)"
-        }
-    }
+    // // Send the HTML e-mail
+    // if (email_address) {
+    //     try {
+    //       if ( params.plaintext_email ){ throw GroovyException('Send plaintext e-mail, not HTML') }
+    //       // Try to send HTML e-mail using sendmail
+    //       [ 'sendmail', '-t' ].execute() << sendmail_html
+    //       log.info "[MARVEL] Sent summary e-mail to $email_address (sendmail)"
+    //     } catch (all) {
+    //       // Catch failures and try with plaintext
+    //       [ 'mail', '-s', subject, email_address ].execute() << email_txt
+    //       log.info "[MARVEL] Sent summary e-mail to $email_address (mail)"
+    //     }
+    // }
 
-    // Write summary e-mail HTML to a file
-    def output_d = new File( "${params.outdir}/pipeline_info/" )
-    if (!output_d.exists()) {
-      output_d.mkdirs()
-    }
-    def output_hf = new File( output_d, "pipeline_report.html" )
-    output_hf.withWriter { w -> w << email_html }
-    def output_tf = new File( output_d, "pipeline_report.txt" )
-    output_tf.withWriter { w -> w << email_txt }
+    // // Write summary e-mail HTML to a file
+    // def output_d = new File( "${params.outdir}/pipeline_info/" )
+    // if (!output_d.exists()) {
+    //   output_d.mkdirs()
+    // }
+    // def output_hf = new File( output_d, "pipeline_report.html" )
+    // output_hf.withWriter { w -> w << email_html }
+    // def output_tf = new File( output_d, "pipeline_report.txt" )
+    // output_tf.withWriter { w -> w << email_txt }
 
     c_reset = params.monochrome_logs ? '' : "\033[0m";
     c_purple = params.monochrome_logs ? '' : "\033[0;35m";
@@ -371,10 +505,10 @@ workflow.onComplete {
     }
 
     if (workflow.success) {
-        log.info "${c_purple}[MARVEL]${c_green} Pipeline completed successfully${c_reset}"
+        log.info "^_^ ${c_purple}[MARVEL]${c_green} Pipeline completed successfully${c_reset}"
     } else {
         checkHostname()
-        log.info "${c_purple}[MARVEL]${c_red} Pipeline completed with errors${c_reset}"
+        log.info "Q_Q ${c_purple}[MARVEL]${c_red} Pipeline completed with errors${c_reset}"
     }
 
 }
@@ -391,8 +525,13 @@ def nfcoreHeader(){
     ${c_white}/  /|    / |    /    ) |   /    /    '   /${c_reset}
 ${c_dim}---${c_reset}${c_white}/| /${c_reset}${c_dim}-${c_reset}${c_white}|${c_reset}${c_dim}---${c_reset}${c_white}/__|${c_reset}${c_dim}---${c_reset}${c_white}/___ /${c_reset}${c_dim}--${c_reset}${c_white}|${c_reset}${c_dim}--${c_reset}${c_white}/${c_reset}${c_dim}----${c_reset}${c_white}/__${c_reset}${c_dim}------${c_reset}${c_white}/${c_reset}${c_dim}----${c_reset}
   ${c_white}/ |/  |  /   |  /    |   | /    /        /${c_reset}
-${c_dim}_${c_reset}${c_white}/${c_reset}${c_dim}__${c_reset}${c_white}/${c_reset}${c_dim}___${c_reset}${c_white}|${c_reset}${c_dim}_${c_reset}${c_white}/${c_reset}${c_dim}____${c_reset}${c_white}|${c_reset}${c_dim}_${c_reset}${c_white}/${c_reset}${c_dim}_____${c_reset}${c_white}|${c_reset}${c_dim}___${c_reset}${c_white}|/${c_reset}${c_dim}____${c_reset}${c_white}/____${c_reset} ${c_dim}___${c_reset}${c_white}/____/${c_reset}${c_dim}_${c_reset}
+_${c_white}/${c_reset}${c_dim}__${c_reset}${c_white}/${c_reset}${c_dim}___${c_reset}${c_white}|${c_reset}${c_dim}_${c_reset}${c_white}/${c_reset}${c_dim}____${c_reset}${c_white}|${c_reset}${c_dim}_${c_reset}${c_white}/${c_reset}${c_dim}_____${c_reset}${c_white}|${c_reset}${c_dim}___${c_reset}${c_white}|/${c_reset}${c_dim}____${c_reset}${c_white}/____,${c_reset}${c_dim}___${c_reset}${c_white}/____/${c_reset}${c_dim}_${c_reset}
+
     """.stripIndent()
+}
+
+def hasExtension(it, extension) {
+    it.toString().toLowerCase().endsWith(extension.toLowerCase())
 }
 
 def checkHostname(){
