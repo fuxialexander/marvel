@@ -221,8 +221,7 @@ process get_region_ref_fasta {
 
     script:
     """
-    samtools faidx $genome_fa > ${genome_fa}.fai && \
-    bedtools getfasta -fullHeader -fi $genome_fa -bed $bed -fo ${name}.fa
+    awk '{print \$1":"(\$2+1)"-"\$3}' $bed | xargs samtools faidx ${genome_fa} > ${name}.fa \
     """
 }
 
@@ -269,7 +268,7 @@ process chunkify_regions {
     tuple val(name), file(regions)
 
     output:
-    file "${name}.chunk_*.bed"
+    file "${name}.chunk_*.bed" 
 
     script:
     """
@@ -277,7 +276,7 @@ process chunkify_regions {
     """
 }
 
-process get_region_chunk_vcf {
+process get_region_chunk_vcf_indexed {
     tag "${region_chunk.baseName}"
     label 'process_light'
     publishDir "${params.outdir}/variants/chunks"
@@ -287,7 +286,7 @@ process get_region_chunk_vcf {
     each region_chunk
 
     output:
-    file "${region_chunk.baseName}.vcf*"
+    tuple file("${region_chunk.baseName}.vcf.gz"), file("${region_chunk.baseName}.vcf.gz.tbi")
 
     script:
     """
@@ -298,25 +297,67 @@ process get_region_chunk_vcf {
     """
 }
 
-process scan_and_test_region_chunk {
-  tag "${region_chunk.baseName}"
+process get_sample_list {
   label 'process_heavy'
-  publishDir "${params.outdir}/variants/chunks"
-
+  publishDir "${params.outdir}/"
+  
   input:
   file vcf
-  each region_chunk
 
   output:
-  file "${region_chunk.baseName}.npz"
+  file "samples.txt"
 
   script:
   """
-  for sample in `bcftools view -h $vcf | grep "^#CHROM" | cut -f10-`; do
-    awk '{print $1":"($2+1)"-"$3}' $region_chunk | xargs samtools faidx ${params.outdir}/sequences/${params.regions.baseName}.fa | bcftools consensus $vcf -s $sample -o $vcf.$sample.fa
+  bcftools view -h $vcf | grep "^#CHROM" | cut -f10- | tr '\t' '\n' > samples.txt
+  """
+}
+process get_chunk_sample_fasta {
+  tag "${region_chunk.baseName}"
+  label 'process_medium'
+  publishDir "${params.outdir}/sequences/chunks"
+
+  input:
+  each region_chunk
+  tuple file(vcf), file(vcf_index)
+  tuple file(fasta), file(fasta_index)
+  // val sample
+
+  output:
+  file "${region_chunk.baseName}.fa"
+
+  script:
+  """
+  for sample in `bcftools view -h $vcf | grep "^#CHROM" | cut -f10-`; do \
+    awk '{print \$1":"(\$2)+1"-"\$3}' $region_chunk \
+    | xargs samtools faidx ${region_chunk.simpleName}.fa \
+    | bcftools consensus -H A -s \$sample $vcf \
+    | sed "s/^>/>\$sample /" >> ${region_chunk.baseName}.fa ; \
   done
   """
 }
+
+process scan_chunk {
+  tag "${fa.baseName}"
+  label 'process_heavy'
+  // publishDir "${params.outdir}/motif_profiles/chunks"
+  input:
+  file fa
+  file motifs
+  
+
+  output:
+  stdout()
+
+  script:
+  """
+  scan.py -bg --batch -m $motifs -s $fa -p 0.00001
+  """
+}
+
+// process test_chunk {
+  
+// }
 
 
 /*
@@ -371,7 +412,10 @@ workflow {
               .map { file -> tuple(file.baseName, file) } 
   
   vcf = Channel.fromPath( params.vcf )
-              
+  
+  
+
+  samples = get_sample_list(vcf).splitText().map{ x -> x.replaceAll(/\n/, "")}
 
   compressedReference = hasExtension(params.fasta, 'gz') 
 
@@ -383,18 +427,30 @@ workflow {
     }
   }
 
-  index_fasta_ref(ch_fasta)
+  // index_fasta_ref(ch_fasta)
   regions_fasta = get_region_ref_fasta(ch_fasta, regions_bed)
-  index_fasta_regions(regions_fasta)
-  regions_fasta = regions_fasta.map { file -> tuple(file.baseName, file) }
+                .map { file -> tuple(file.baseName, file) }
   nuc_freq = count_nucleotide_frequency(regions_fasta)
-  get_hocomoco_motif_in_jaspar_format()
+  regions_fasta_indexed = index_fasta_regions(regions_fasta)
+  motifs_pwm, motifs_index, motifs_symbol = get_hocomoco_motif_in_jaspar_format()
   chunk_notation = ~/.chunk_\w+.vcf/
   region_chunks = chunkify_regions(regions_bed).flatMap()
-  regions_chunks_vcf = get_region_chunk_vcf(vcf, region_chunks).flatMap().filter{it.toString().endsWith("gz")}
+  region_chunks_vcf_indexed = get_region_chunk_vcf_indexed(vcf, region_chunks)
+                      // .flatMap()
+                      // .filter { it.toString().endsWith("gz") }
+                      // .map { file -> tuple(file.baseName.replaceFirst(/.vcf/, ""), file) }
+                      // .view()
+                      // .map { file -> tuple(file.baseName, file) }
+  // region_chunks = region_chunks.map { file -> tuple(file.baseName, file, file.simpleName)}
+                        //  .join(region_chunks_vcf) 
+                        //  .view()     
   // .map { file -> tuple (file.baseName - chunk_notation, file)}
   // regions_chunks_fasta = get_region_sample_fasta(regions_chunks_vcf)
-  
+  chunk_sample_fastas = get_chunk_sample_fasta(region_chunks, region_chunks_vcf_indexed, regions_fasta_indexed)
+  // region_chunks.view()
+  // regions_fasta_indexed.view()
+  // scan_chunk(chunk_sample_fastas, motifs_pwm)
+
 }
 
 /*

@@ -3,9 +3,12 @@
 name: nf-core-marvel-1.0dev
 channels:
   - conda-forge
+  - bioconda
   - default
 dependencies:
   - biopython=1.74
+  - samtools=1.9
+  - bcftools=1.9
   - matplotlib-base=3.1.1
   - numpy=1.17.2
   - pandas=0.25.2
