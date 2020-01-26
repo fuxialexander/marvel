@@ -1,6 +1,6 @@
 # ![marvel](docs/images/marvel_banner.png)
 
-**Multigranular Analysis of Regulatory Variants on the Epigenomic Landscape**.
+**MARVEL: Multigranular Analysis of Regulatory Variants on the Epigenomic Landscape**.
 
 [![Build Status](https://travis-ci.com/fuxialexander/marvel.svg?branch=master)](https://travis-ci.com/fuxialexander/marvel)
 [![Nextflow](https://img.shields.io/badge/nextflow-%E2%89%A50.32.0-brightgreen.svg)](https://www.nextflow.io/)
@@ -9,6 +9,10 @@
 [![Docker](https://img.shields.io/docker/automated/nfcore/marvel.svg)](https://hub.docker.com/r/nfcore/marvel)
 
 ## Introduction
+MARVEL is a pipeline for noncoding regulatory variants analysis using whole-genome sequencing data and cell-type specific epigenomic profiles. The workflow of MARVEL can be summarized using the following figure:
+
+![Schematic overview of MARVEL](images/marvel_overview.png)
+Figure 1 Schematic overview of MARVEL. (**a**) Epigenomic data of relevant cell type (hNC in the case of HSCR) are integrated with a gene annotation set to identify the active regulatory elements relevant to the phenotype of interest. (**b**) In each regulatory element, the functional significance of genetic variants is evaluated by their perturbation to TF sequence motifs. (**c**) Since the perturbation effects of multiple genetic variants may not add up linearly, they are considered together to reconstruct the sample-specific sequences, based on which the overall change of TF motif match scores is determined. (**d**) For motifs with multiple appearances within the same regulatory element, their match scores are aggregated to give a single score. (**e**) At a higher level, if a gene involves multiple regulatory elements, the aggregated match scores of a motif in the different elements can be further aggregated into a single score. This is done in the gene-based analysis. (**f-g**) The aggregated match score matrix of all the motifs for a regulatory element/gene is used as the input of an association test, which selects a subset of the most informative motif features (**f**) and compares a model involving both these selected features and the covariates with a null model that involves only the covariates using likelihood ratio (LR) test (**g**). (**h**) The regulatory elements and genes identified to be significantly associated with the phenotype can be further studied by other downstream analyses, such as gene set enrichment and single-cell expression analyses. (**i**) TFs with recurrently perturbed match scores in different regulatory elements are collected to infer a network that highlights the phenotype-associated perturbations. Please notice that **h** and **i** are not included in this repository at the current stage, but can be obtained easily using the result produced by MARVEL and [`Cytoscape`](https://cytoscape.org/).
 
 The pipeline is built using [Nextflow](https://www.nextflow.io), a workflow tool to run tasks across multiple compute infrastructures in a very portable manner. It comes with docker containers making installation trivial and results highly reproducible.
 
