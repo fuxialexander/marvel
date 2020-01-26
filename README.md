@@ -2,7 +2,7 @@
 
 **Multigranular Analysis of Regulatory Variants on the Epigenomic Landscape**.
 
-[![Build Status](https://travis-ci.com/marvel.svg?branch=master)](https://travis-ci.com/fuxialexander/marvel)
+[![Build Status](https://travis-ci.com/fuxialexander/marvel.svg?branch=master)](https://travis-ci.com/fuxialexander/marvel)
 [![Nextflow](https://img.shields.io/badge/nextflow-%E2%89%A50.32.0-brightgreen.svg)](https://www.nextflow.io/)
 
 [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg)](http://bioconda.github.io/)
@@ -39,7 +39,6 @@ The marvel pipeline comes with documentation about the pipeline, found in the `d
 
 1. [Installation](https://nf-co.re/usage/installation)
 2. Pipeline configuration
-    * [Local installation](https://nf-co.re/usage/local_installation)
     * [Adding your own system config](https://nf-co.re/usage/adding_own_config)
     * [Reference genomes](https://nf-co.re/usage/reference_genomes)
 3. [Running the pipeline](docs/usage.md)
@@ -54,7 +53,9 @@ MARVEL is implemented using a boilplate created by the nf-core team (https://nf-
 ## Citation
 
 <!-- TODO: to be updated -->
-If you use MARVEL for your analysis, please cite it using the following doi: 
-
-You can cite the `nf-core` pre-print as follows:  
-Ewels PA, Peltzer A, Fillinger S, Alneberg JA, Patel H, Wilm A, Garcia MU, Di Tommaso P, Nahnsen S. **nf-core: Community curated bioinformatics pipelines**. *bioRxiv*. 2019. p. 610741. [doi: 10.1101/610741](https://www.biorxiv.org/content/10.1101/610741v1).
+If you use MARVEL for your analysis, please cite it as: 
+Alexander Xi Fu, Kathy Nga-Chu Lui, Clara Sze-Man Tang, Ray Kit Ng, Frank Pui-Ling Lai, Sin-Ting
+Lau, Zhixin Li, Maria-Mercè Gracia-Barcelo, Pak-Chung Sham, Paul Kwang-Hang Tam, Elly Sau-Wai
+Ngan and Kevin Y. Yip. Whole-genome analysis of noncoding genetic variations identifies
+multigranular regulatory element perturbations associated with Hirschsprung disease. (2020)
+(DOI AND JOURNAL TO BE ADDED).
