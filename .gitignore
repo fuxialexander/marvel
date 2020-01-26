@@ -6,3 +6,4 @@ results/
 tests/test_data
 *.pyc
 .vscode/tags
+__pycache__/

@@ -1,0 +1,5 @@
+{
+    "python.pythonPath": "/home/xfu/miniconda3/envs/nf-core-marvel-1.0dev/bin/python",
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true
+}
