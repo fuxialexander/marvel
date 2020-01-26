@@ -6,8 +6,6 @@ This document describes the output produced by the MARVEL.
 MARVEL is built using [Nextflow](https://www.nextflow.io/).
 The overview of MARVEL can be summarized into the following figure.
 
-![Overview of MARVEL](images/marvel_overview.png)
-
 ## Motif scanning & test
 
 **Output directory: `results/test/chunks`**
