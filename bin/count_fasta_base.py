@@ -35,7 +35,7 @@ def printSequenceStats(fileName, sequenceName, charOccurrenceMap, totalCharCount
         charCount = charOccurrenceMap[char]
         relativeFrequency = charCount * 1.0 / totalCharCount
         relativeFrequencies.append(relativeFrequency)
-        print ("{}\t{}\t{}".format(char, charCount, relativeFrequency))
+        print ("{}".format(relativeFrequency))
     #For nucleotide sequences (ATGC only), also print A+T vs G+C count
     # if sorted(charOccurrenceMap.keys()) == ["A","C","G","T"]:
     #     #Print A+T count

@@ -9,7 +9,7 @@ process index_fasta {
   tuple val(name), file(fa)
 
   output:
-  tuple file(fa), file("${fa}*")
+  tuple val(name), file(fa), file("${fa}.fai")
 
   script:
   """
