@@ -9,12 +9,12 @@ Content-Type: text/html; charset=utf-8
 $email_html
 
 --nfcoremimeboundary
-Content-Type: image/png;name="marvel_logo.png"
+Content-Type: image/png;name="marvel_banner.png"
 Content-Transfer-Encoding: base64
 Content-ID: <nfcorepipelinelogo>
-Content-Disposition: inline; filename="marvel_logo.png"
+Content-Disposition: inline; filename="marvel_banner.png"
 
-<% out << new File("$baseDir/assets/marvel_logo.png").
+<% out << new File("$baseDir/assets/marvel_banner.png").
   bytes.
   encodeBase64().
   toString().

@@ -1,4 +1,4 @@
-# ![marvel](docs/images/marvel_logo.png)
+# ![marvel](docs/images/marvel_banner.png)
 
 **Multigranular Analysis of Regulatory Variants on the Epigenomic Landscape**.
 
