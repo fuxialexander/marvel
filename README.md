@@ -25,14 +25,14 @@ ii. Install one of [`docker`](https://docs.docker.com/engine/installation/), [`s
 iii. Download the pipeline and test it on a minimal dataset with a single command
 
 ```bash
-nextflow run marvel -profile test,<docker/singularity/conda>
+nextflow run fuxialexander/marvel -profile test,<docker/singularity/conda>
 ```
 
 iv. Start running your own analysis!
 
 <!-- TODO nf-core: Update the default command above used to run the pipeline -->
 ```bash
-nextflow run marvel -profile <docker/singularity/conda> --enhancer_bed "enhancer.bed" --enhancer_bed "promoter.bed" --genome hg19
+nextflow run fuxialexander/marvel -profile <docker/singularity/conda> --enhancer_bed "enhancer.bed" --promoter_bed "promoter.bed" 
 ```
 
 See [usage docs](docs/usage.md) for all of the available options when running the pipeline.
@@ -43,6 +43,7 @@ The marvel pipeline comes with documentation about the pipeline, found in the `d
 
 1. [Installation](https://nf-co.re/usage/installation)
 2. Pipeline configuration
+    * [Local installation](https://nf-co.re/usage/local_installation)
     * [Adding your own system config](https://nf-co.re/usage/adding_own_config)
     * [Reference genomes](https://nf-co.re/usage/reference_genomes)
 3. [Running the pipeline](docs/usage.md)

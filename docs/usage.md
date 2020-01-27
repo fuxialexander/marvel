@@ -12,8 +12,6 @@
         - [Reproducibility](#reproducibility)
     - [Main arguments](#main-arguments)
         - [`-profile`](#-profile)
-        - [`--reads`](#--reads)
-        - [`--singleEnd`](#--singleend)
     - [Reference genomes](#reference-genomes)
         - [`--genome` (using iGenomes)](#--genome-using-igenomes)
         - [`--fasta`](#--fasta)
@@ -38,7 +36,6 @@
         - [`--maxcpus`](#--maxcpus)
         - [`--plaintextemail`](#--plaintextemail)
         - [`--monochromelogs`](#--monochromelogs)
-        - [`--multiqcconfig`](#--multiqcconfig)
 
 <!-- /TOC -->
 
@@ -109,30 +106,6 @@ If `-profile` is not specified at all the pipeline will be run locally and expec
   * Includes links to test data so needs no other parameters
 
 <!-- TODO nf-core: Document required command line parameters -->
-
-### 1.4.2. `--reads`
-Use this to specify the location of your input FastQ files. For example:
-
-```bash
---reads 'path/to/data/sample_*_{1,2}.fastq'
-```
-
-Please note the following requirements:
-
-1. The path must be enclosed in quotes
-2. The path must have at least one `*` wildcard character
-3. When using the pipeline with paired end data, the path must use `{1,2}` notation to specify read pairs.
-
-If left unspecified, a default pattern is used: `data/*{1,2}.fastq.gz`
-
-### 1.4.3. `--singleEnd`
-By default, the pipeline expects paired-end data. If you have single-end data, you need to specify `--singleEnd` on the command line when you launch the pipeline. A normal glob pattern, enclosed in quotation marks, can then be used for `--reads`. For example:
-
-```bash
---singleEnd --reads '*.fastq'
-```
-
-It is not possible to run a mixture of single-end and paired-end files in one run.
 
 
 ## 1.5. Reference genomes
@@ -287,5 +260,4 @@ Set to receive plain-text e-mails instead of HTML formatted.
 ### 1.8.13. `--monochrome_logs`
 Set to disable colourful command line output and live life in monochrome.
 
-### 1.8.14. `--multiqc_config`
-Specify a path to a custom MultiQC configuration file.
+$$
