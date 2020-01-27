@@ -82,32 +82,6 @@ if ( workflow.profile == 'awsbatch') {
 
 ch_output_docs = file("$baseDir/docs/output.md", checkIfExists: true)
 
-/*
- * Create a channel for input read files
- */
-
-
-if (params.regionPaths) {
-    if (params.singleEnd) {
-        Channel
-            .from(params.regionPaths)
-            .map { row -> [ row[0], [ file(row[1][0], checkIfExists: true) ] ] }
-            .ifEmpty { exit 1, "params.regionPaths was empty - no input files supplied" }
-            .into { region_files_fastqc; region_files_trimming }
-    } else {
-        Channel
-            .from(params.regionPaths)
-            .map { row -> [ row[0], [ file(row[1][0], checkIfExists: true), file(row[1][1], checkIfExists: true) ] ] }
-            .ifEmpty { exit 1, "params.regionPaths was empty - no input files supplied" }
-            .into { region_files_fastqc; region_files_trimming }
-    }
-} else {
-    Channel
-        .fromFilePairs( params.regions, size: params.singleEnd ? 1 : 2 )
-        .ifEmpty { exit 1, "Cannot find any regions matching: ${params.regions}\nNB: Path needs to be enclosed in quotes!\nIf this is single-end data, please specify --singleEnd on the command line." }
-        .into { region_files_fastqc; region_files_trimming }
-}
-
 // Header log info
 log.info nfcoreHeader()
 def summary = [:]
@@ -332,9 +306,9 @@ process scan_test {
   script:
   """
   scan_test.py -m $params.outdir/motifs -s $fa \
-  -P $phenocov -o $name -p $params.motit_scan_threshold --batch \
+  -P $phenocov -o $name -p $params.motif_scan_threshold --batch \
   --permutation-size-multiplier $params.permutation_multiplier \
-  --bg $(cat $nuc_freq | tr '\n' ' ')
+  --bg \$(cat $nuc_freq | tr '\n' ' ')
   """
 }
 
@@ -356,24 +330,23 @@ process test {
   """
 }
 
-/*
- * STEP 3 - Output Description HTML
- */
-// process output_documentation {
-//     publishDir "${params.outdir}/pipeline_info", mode: 'copy'
+process summarize {
+  tag "${name}"
+  label 'process_medium'
+  publishDir "${params.outdir}/summary/"
+  input:
+  tuple val(name), file(results)
+  file phenocov
 
-//     input:
-//     file output_docs from ch_output_docs
+  output:
+  file "*.pdf" 
+  file "*.xlsx"
 
-//     output:
-//     file "results_description.html"
-
-//     script:
-//     """
-//     markdown_to_html.r $output_docs results_description.html
-//     """
-// }
-
+  script:
+  """
+  summarize.py ${name}*real.npz ${name}*perm.npz ${name}*profile.npz
+  """
+}
   
 workflow region_test {
   get: region_bed
@@ -400,11 +373,11 @@ workflow region_test {
   results = scan_test(chunks_sample_fasta, phenocov, nuc_freq).flatten()
 }
 
-workflow gene_test {
-  get: enhancer_bed, promoter_bed
-  main:
-  get_gene_profile(enhancer_bed, promoter_bed, params.outdir + '/test/chunks/*')
-}
+// workflow gene_test {
+//   get: enhancer_bed, promoter_bed
+//   main:
+//   get_gene_profile(enhancer_bed, promoter_bed, params.outdir + '/test/chunks/*')
+// }
 
 workflow {
   enhancers = Channel.fromPath( params.enhancer_bed )
@@ -413,16 +386,16 @@ workflow {
                      .map { file -> tuple(file.baseName, files) }
   // Enhancer-based test
   if (params.enhancer_bed) {
-    enhancer_profiles = region_test(enhancers).filter { it.toString().endsWith("_profiles.npz") }
+    enhancer_results = region_test(enhancers).filter { it.toString().endsWith("_profiles.npz") }
   }
   // Promoter-based test
   if (params.promoter_bed) {
-    promoter_profiles = region_test(promoters).filter { it.toString().endsWith("_profiles.npz") }
+    promoter_results = region_test(promoters).filter { it.toString().endsWith("_profiles.npz") }
   }
   // Genes-based test
-  if (enhancer_profiles && promoter_profiles) {
-    gene_test(enhancers, promoters)
-  }
+  // if (enhancer_profiles && promoter_profiles) {
+  //   gene_test(enhancers, promoters)
+  // }
 }
 
 /*
