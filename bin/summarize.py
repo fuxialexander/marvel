@@ -27,7 +27,7 @@ sels = []
 perm_stats = []
 perm_sels = []
 
-for i in tqdm(glob(argv[1])):  # 'fantom_real/*.npz'
+for i in tqdm(glob(argv[1] + "*_real_results.npz")):  # 'fantom_real/*.npz'
     with np.load(i, allow_pickle=True) as data:
         stats.append(data['stats'])
         coefs.append(data['coefs'])
@@ -37,7 +37,7 @@ stats = np.concatenate(stats)
 sels = np.concatenate(sels)
 coefs = np.concatenate(coefs)
 
-for i in tqdm(glob(argv[2])):  # 'fantom_perm/*.npz'
+for i in tqdm(glob(argv[1] + "*_perm_results.npz")):  # 'fantom_perm/*.npz'
     with np.load(i) as data:
         perm_stats.append(data['stats'])
         perm_sels.append(data['sels'])
@@ -149,10 +149,6 @@ def myqqplot(data, labels, n_quantiles=100, alpha=0.95, error_type='theoretical'
 
 
 def p_plot_qqplot(pvals, filename, distribution='beta', error_type='theoretical'):
-    plt.rcParams['font.family'] = 'Arial'
-    plt.rcParams['figure.dpi'] = 600
-    plt.rcParams['savefig.dpi'] = 600
-    plt.rcParams['figure.figsize'] = 3, 3
     mp = myqqplot([pvals], [''],
                   color=['#e34a33'],
                   fill_dens=[0.1],
@@ -163,4 +159,4 @@ def p_plot_qqplot(pvals, filename, distribution='beta', error_type='theoretical'
         mp.savefig(filename, dpi=600)
 
 
-p_plot_qqplot(p_stats, argv[3])  # "fantom_qqplot_ex1.pdf"
+p_plot_qqplot(p_stats, argv[1]+"_qqplot.pdf")  # "fantom_qqplot.pdf"
