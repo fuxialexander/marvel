@@ -380,9 +380,9 @@ workflow region_test {
 // }
 
 workflow {
-  enhancers = Channel.fromPath( params.enhancer_bed )
+  enhancers = Channel.fromPath( params.enhancer )
                      .map { file -> tuple(file.baseName, files) }
-  promoters = Channel.fromPath( params.promoter_bed )
+  promoters = Channel.fromPath( params.promoter )
                      .map { file -> tuple(file.baseName, files) }
   // Enhancer-based test
   if (params.enhancer_bed) {
