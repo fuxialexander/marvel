@@ -1,13 +1,13 @@
 #!/usr/bin/env nextflow
 /*
-========================================================================================
-                         MARVEL
-========================================================================================
+ ========================================================================================
+ MARVEL
+ ========================================================================================
  MARVEL Analysis Pipeline.
  #### Homepage / Documentation
  https://github.com/fuxialexander/marvel
-----------------------------------------------------------------------------------------
-*/
+ ----------------------------------------------------------------------------------------
+ */
 nextflow.preview.dsl=2
 
 def helpMessage() {
@@ -65,17 +65,17 @@ params.fasta = params.genome ? params.genomes[ params.genome ].fasta ?: false : 
 //  this has the bonus effect of catching both -name and --name
 custom_runName = params.name
 if (!(workflow.runName ==~ /[a-z]+_[a-z]+/)) {
-  custom_runName = workflow.runName
+    custom_runName = workflow.runName
 }
 
 if ( workflow.profile == 'awsbatch') {
-  // AWSBatch sanity checking
-  if (!params.awsqueue || !params.awsregion) exit 1, "Specify correct --awsqueue and --awsregion parameters on AWSBatch!"
-  // Check outdir paths to be S3 buckets if running on AWSBatch
-  // related: https://github.com/nextflow-io/nextflow/issues/813
-  if (!params.outdir.startsWith('s3:')) exit 1, "Outdir not on S3 - specify S3 Bucket to run on AWSBatch!"
-  // Prevent trace files to be stored on S3 since S3 does not support rolling files.
-  if (workflow.tracedir.startsWith('s3:')) exit 1, "Specify a local tracedir or run without trace! S3 cannot be used for tracefiles."
+    // AWSBatch sanity checking
+    if (!params.awsqueue || !params.awsregion) exit 1, "Specify correct --awsqueue and --awsregion parameters on AWSBatch!"
+    // Check outdir paths to be S3 buckets if running on AWSBatch
+    // related: https://github.com/nextflow-io/nextflow/issues/813
+    if (!params.outdir.startsWith('s3:')) exit 1, "Outdir not on S3 - specify S3 Bucket to run on AWSBatch!"
+    // Prevent trace files to be stored on S3 since S3 does not support rolling files.
+    if (workflow.tracedir.startsWith('s3:')) exit 1, "Specify a local tracedir or run without trace! S3 cannot be used for tracefiles."
 }
 
 // Stage config files
@@ -99,17 +99,17 @@ summary['Working dir']      = workflow.workDir
 summary['Script dir']       = workflow.projectDir
 summary['User']             = workflow.userName
 if (workflow.profile == 'awsbatch') {
-  summary['AWS Region']     = params.awsregion
-  summary['AWS Queue']      = params.awsqueue
+    summary['AWS Region']     = params.awsregion
+    summary['AWS Queue']      = params.awsqueue
 }
 summary['Config Profile'] = workflow.profile
 if (params.config_profile_description) summary['Config Description'] = params.config_profile_description
 if (params.config_profile_contact)     summary['Config Contact']     = params.config_profile_contact
 if (params.config_profile_url)         summary['Config URL']         = params.config_profile_url
 if (params.email || params.email_on_fail) {
-  summary['E-mail Address']    = params.email
-  summary['E-mail on failure'] = params.email_on_fail
-  summary['MultiQC maxsize']   = params.maxMultiqcEmailFileSize
+    summary['E-mail Address']    = params.email
+    summary['E-mail on failure'] = params.email_on_fail
+    summary['MultiQC maxsize']   = params.maxMultiqcEmailFileSize
 }
 log.info summary.collect { k,v -> "${k.padRight(18)}: $v" }.join("\n")
 log.info "-\033[2m--------------------------------------------------\033[0m-"
@@ -131,7 +131,7 @@ ${summary.collect { k,v -> "            <dt>$k</dt><dd><samp>${v ?: '<span style
         </dl>
     """.stripIndent()
 
-   return yaml_file
+    return yaml_file
 }
 
 /*
@@ -140,9 +140,9 @@ ${summary.collect { k,v -> "            <dt>$k</dt><dd><samp>${v ?: '<span style
 process get_software_versions {
     publishDir "${params.outdir}/pipeline_info", mode: 'copy',
         saveAs: { filename ->
-            if (filename.indexOf(".csv") > 0) filename
-            else null
-        }
+        if (filename.indexOf(".csv") > 0) filename
+        else null
+    }
 
     output:
     file 'software_versions_mqc.yaml' into software_versions_yaml
@@ -163,7 +163,19 @@ process get_software_versions {
 /*
  * STEP 1 - Get Region Fasta
  */
+process conda_setup_glmpath {
+    input: 
+    file glmpath
+    
+    output:
+    val(1)
 
+    script:
+    """
+    R -e "install.packages(c('glmpath'), dependencies=TRUE, repos='http://cran.rstudio.com/')" \
+      && R CMD INSTALL $glmpath
+    """
+}
 
 process get_region_ref_fasta {
     tag "${name}"
@@ -171,8 +183,7 @@ process get_region_ref_fasta {
     publishDir "${params.outdir}/sequences"
 
     input:
-    tuple val(ch_name), file(genome_fa)
-    tuple val(name), file(bed)
+    tuple val(ch_name), file(genome_fa), val(name), file(bed)
 
     output:
     tuple val(name), file("${name}.fa")
@@ -184,34 +195,34 @@ process get_region_ref_fasta {
 }
 
 process index_fasta {
-  tag "$name"
-  label 'process_light'
-  publishDir "${params.outdir}/sequences"
+    tag "$name"
+    label 'process_light'
+    publishDir "${params.outdir}/sequences"
 
-  input:
-  tuple val(name), file(fa)
+    input:
+    tuple val(name), file(fa)
 
-  output:
-  tuple val(name), file(fa), file("${fa}.fai")
+    output:
+    tuple val(name), file(fa), file("${fa}.fai")
 
-  script:
-  """
+    script:
+    """
   samtools faidx ${fa} > ${fa}.fai
   """
 }
 
 process gunzip {
-  label 'process_light'
-  publishDir "${params.outdir}/sequences"
+    label 'process_light'
+    publishDir "${params.outdir}/sequences"
 
-  input:
-  file gz
+    input:
+    file gz
 
-  output:
-  file "$gz.baseName"
+    output:
+    file "$gz.baseName"
 
-  script:
-  """
+    script:
+    """
   gunzip -k --verbose --stdout --force $gz > $gz.baseName
   """
 }
@@ -289,18 +300,18 @@ process get_region_chunk_vcf_indexed {
 }
 
 process get_sample_fasta {
-  tag "${name}"
-  label 'process_high'
-  publishDir "${params.outdir}/sequences/chunks"
+    tag "${name}"
+    label 'process_high'
+    publishDir "${params.outdir}/sequences/chunks"
 
-  input:
-  tuple val(name), file(bed), file(vcf), file(vcf_index), val(genome_name), file(fasta), file(fasta_index), file(phenocov)
+    input:
+    tuple val(name), file(bed), file(vcf), file(vcf_index), val(genome_name), file(fasta), file(fasta_index), file(phenocov)
 
-  output:
-  file("${name}.fa")
+    output:
+    file("${name}.fa")
 
-  script:
-  """
+    script:
+    """
   for sample in `tail -n +2 $phenocov | cut -f1 | sort | tr '\n' '\t' `; do \
     bcftools view --trim-alt-alleles -s \$sample $vcf \
     --min-ac=1 --no-update -Ou \
@@ -320,18 +331,18 @@ process get_sample_fasta {
 }
 
 process scan_test {
-  tag "${name}"
-  label 'process_heavy'
-  publishDir "${params.outdir}/test/chunks"
-  input:
-  tuple val(name), file(fa), file(phenocov), file(motifs), val(test_name), file(nuc_freq)
+    tag "${name}"
+    label 'process_heavy'
+    publishDir "${params.outdir}/test/chunks"
+    input:
+    tuple val(name), file(fa), file(phenocov), file(motifs), val(test_name), file(nuc_freq), val(prepared)
 
-  output:
-  file "*.npz"
+    output:
+    file "*.npz"
 
-  script:
-  """
-  scan_test.py -m motifs/*.pwm -s $fa \
+    script:
+    """
+  scan_test.py -m $motifs/*.pwm -s $fa \
   -P $phenocov -o $name -p $params.motif_scan_threshold --batch \
   --permutation-size-multiplier $params.permutation_multiplier \
   --bg \$(cat $nuc_freq | tr '\\n' ' ')
@@ -339,71 +350,95 @@ process scan_test {
 }
 
 process test {
-  tag "${name}"
-  label 'process_heavy'
-  publishDir "${params.outdir}/test/chunks"
-  input:
-  tuple val(name), file(profiles)
-  file phenocov
-  tuple val(test_name), file(nuc_freq)
+    tag "${name}"
+    label 'process_heavy'
+    publishDir "${params.outdir}/test/chunks"
+    input:
+    tuple val(name), file(profiles)
+    file phenocov
+    tuple val(test_name), file(nuc_freq)
 
-  output:
-  file "*.npz"
+    output:
+    file "*.npz"
 
-  script:
-  """
+    script:
+    """
   test.py -P $phenocov -o $name --permutation-size-multiplier $params.permutation_multiplier 
   """
 }
 
 process summarize {
-  tag "${name}"
-  label 'process_medium'
-  publishDir "${params.outdir}/summary/"
-  input:
-  tuple val(name), file(results)
-  file phenocov
+    tag "${name}"
+    label 'process_medium'
+    publishDir "${params.outdir}/summary/"
+    input:
+    tuple val(name), file(results)
+    file phenocov
 
-  output:
-  file "*.pdf" 
-  file "*.xlsx"
+    output:
+    file "*.pdf"
+    file "*.xlsx"
 
-  script:
-  """
+    script:
+    """
   summarize.py ${name}*real.npz ${name}*perm.npz ${name}*profile.npz
   """
 }
 
 if (params.fasta) { 
-  if (hasExtension(params.fasta, 'gz')) {
-    ch_fasta = gunzip(file(params.fasta, checkIfExists: true)).map { file -> tuple(file.baseName, file) }
-  } else {
-    ch_fasta = Channel.fromPath(params.fasta).map { file -> tuple(file.baseName, file) }
-  }
+    if (hasExtension(params.fasta, 'gz')) {
+        ch_fasta = gunzip(file(params.fasta, checkIfExists: true))
+            .map { file -> tuple(file.baseName, file) }
+    } else {
+        ch_fasta = Channel.fromPath(params.fasta)
+            .map { file -> tuple(file.baseName, file) }
+    }
 }
 
 regions = Channel.fromPath( params.regions )
-                    .map { file -> tuple(file.baseName, file) }
+    .map { file -> tuple(file.baseName, file) }
 
 
 workflow region_test {
-  get: region_bed
-  main:
-  vcf = Channel.fromPath( params.vcf )
-  phenocov = Channel.fromPath( params.phenocov )
-
-
-  regions_fasta = get_region_ref_fasta(ch_fasta, region_bed)
-  fasta_indexed = index_fasta(ch_fasta)
-  nuc_freq = count_nucleotide_frequency(regions_fasta)
-  motifs = get_hocomoco_motif_in_jaspar_format()
-  chunks_bed = chunkify_regions(region_bed).flatten().map { file -> tuple(file.baseName, file) }
-  chunks_vcf_indexed = get_region_chunk_vcf_indexed(chunks_bed.combine(vcf))
-  chunks_vcf_indexed = chunks_vcf_indexed[0].map { file -> tuple(file.simpleName, file) }.merge(chunks_vcf_indexed[1])
-  chunks_bed_vcf = chunks_bed.join(chunks_vcf_indexed)
-  chunks_sample_fasta = get_sample_fasta(chunks_bed_vcf.combine(fasta_indexed).combine(phenocov))
-  motifs = Channel.fromPath( params.outdir+'/motifs/' )
-  results = scan_test(chunks_sample_fasta.map { file -> tuple(file.baseName, file) }.combine(phenocov).combine(motifs).combine(nuc_freq)).flatten()
+    get: region_bed
+    main:
+    vcf = Channel.fromPath( params.vcf )
+    phenocov = Channel.fromPath( params.phenocov )
+    regions_fasta = get_region_ref_fasta(ch_fasta.combine(region_bed))
+    fasta_indexed = index_fasta(ch_fasta)
+    nuc_freq = count_nucleotide_frequency(regions_fasta)
+    motifs = get_hocomoco_motif_in_jaspar_format()
+        .flatten()
+        .first()
+        .map{ file -> file.getParent() }
+    chunks_bed = chunkify_regions(region_bed)
+        .flatten()
+        .map { file -> tuple(file.baseName, file) }
+    chunks_vcf_indexed = get_region_chunk_vcf_indexed( chunks_bed.combine( vcf ) )
+    chunks_vcf_indexed = chunks_vcf_indexed[0]
+        .map { file -> tuple(file.simpleName, file) }
+        .merge(chunks_vcf_indexed[1])
+    chunks_bed_vcf = chunks_bed.join(chunks_vcf_indexed)
+    chunks_sample_fasta = get_sample_fasta {
+        chunks_bed_vcf
+            .combine(fasta_indexed)
+            .combine(phenocov) }
+    if ("$workflow.profile" =~ /conda/) {
+        glmpath = Channel.fromPath( "glmpath_0.98.tar.gz" )
+        prepared = conda_setup_glmpath(glmpath)
+    } else {
+        prepared = 1
+    }
+    results = scan_test{
+        chunks_sample_fasta
+            .map { file -> tuple(file.baseName, file) }
+            .combine(phenocov)
+            .combine(motifs)
+            .combine(nuc_freq)
+            .combine(prepared)
+            .filter{ it[0].startsWith(it[4]) }
+    }
+        .flatten()
 }
 
 // workflow gene_test {
@@ -413,18 +448,17 @@ workflow region_test {
 // }
 
 workflow {
-  main:
+    main:
+    // Region-based test
+    if (params.regions) {
+        regions_results = region_test(regions)
+    }
 
-  // Region-based test
-  if (params.regions) {
-    regions_results = region_test(regions)
-  }
 
-
-  // Genes-based test
-  // if (enhancer_profiles && promoter_profiles) {
-  //   gene_test(enhancers, promoters)
-  // }
+    // Genes-based test
+    // if (enhancer_profiles && promoter_profiles) {
+    //   gene_test(enhancers, promoters)
+    // }
 }
 
 /*
@@ -435,7 +469,7 @@ workflow.onComplete {
     // Set up the e-mail variables
     def subject = "[MARVEL] Successful: $workflow.runName"
     if (!workflow.success) {
-      subject = "[MARVEL] FAILED: $workflow.runName"
+        subject = "[MARVEL] FAILED: $workflow.runName"
     }
     def email_fields = [:]
     email_fields['version'] = workflow.manifest.version
@@ -487,21 +521,21 @@ workflow.onComplete {
     // Send the HTML e-mail
     if (email_address) {
         try {
-          if ( params.plaintext_email ){ throw GroovyException('Send plaintext e-mail, not HTML') }
-          // Try to send HTML e-mail using sendmail
-          [ 'sendmail', '-t' ].execute() << sendmail_html
-          log.info "[MARVEL] Sent summary e-mail to $email_address (sendmail)"
+            if ( params.plaintext_email ){ throw GroovyException('Send plaintext e-mail, not HTML') }
+            // Try to send HTML e-mail using sendmail
+            [ 'sendmail', '-t' ].execute() << sendmail_html
+            log.info "[MARVEL] Sent summary e-mail to $email_address (sendmail)"
         } catch (all) {
-          // Catch failures and try with plaintext
-          [ 'mail', '-s', subject, email_address ].execute() << email_txt
-          log.info "[MARVEL] Sent summary e-mail to $email_address (mail)"
+            // Catch failures and try with plaintext
+            [ 'mail', '-s', subject, email_address ].execute() << email_txt
+            log.info "[MARVEL] Sent summary e-mail to $email_address (mail)"
         }
     }
 
     // Write summary e-mail HTML to a file
     def output_d = new File( "${params.outdir}/pipeline_info/" )
     if (!output_d.exists()) {
-      output_d.mkdirs()
+        output_d.mkdirs()
     }
     def output_hf = new File( output_d, "pipeline_report.html" )
     output_hf.withWriter { w -> w << email_html }
@@ -514,9 +548,9 @@ workflow.onComplete {
     c_red = params.monochrome_logs ? '' : "\033[0;31m";
 
     if (workflow.stats.ignoredCount > 0 && workflow.success) {
-      log.info "${c_purple}Warning, pipeline completed, but with errored process(es) ${c_reset}"
-      log.info "${c_red}Number of ignored errored process(es) : ${workflow.stats.ignoredCount} ${c_reset}"
-      log.info "${c_green}Number of successfully ran process(es) : ${workflow.stats.succeedCount} ${c_reset}"
+        log.info "${c_purple}Warning, pipeline completed, but with errored process(es) ${c_reset}"
+        log.info "${c_red}Number of ignored errored process(es) : ${workflow.stats.ignoredCount} ${c_reset}"
+        log.info "${c_green}Number of successfully ran process(es) : ${workflow.stats.succeedCount} ${c_reset}"
     }
 
     if (workflow.success) {
