@@ -32,7 +32,7 @@ iv. Start running your own analysis!
 
 <!-- TODO nf-core: Update the default command above used to run the pipeline -->
 ```bash
-nextflow run fuxialexander/marvel -profile <docker/singularity/conda> --enhancer_bed "enhancer.bed" --promoter_bed "promoter.bed" 
+nextflow run fuxialexander/marvel -profile <docker/singularity/conda> --enhancer "enhancer.bed" --promoter "promoter.bed" 
 ```
 
 See [usage docs](docs/usage.md) for all of the available options when running the pipeline.
