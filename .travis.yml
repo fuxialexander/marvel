@@ -20,7 +20,6 @@ install:
   # Install Nextflow
   - mkdir /tmp/nextflow && cd /tmp/nextflow
   - wget -qO- get.nextflow.io | bash
-  - wget https://github.com/nextflow-io/nextflow/releases/download/v20.01.0-edge/nextflow
   - sudo ln -s /tmp/nextflow/nextflow /usr/local/bin/nextflow
   - sudo chmod a+x /usr/local/bin/nextflow
   # Install nf-core/tools
@@ -32,8 +31,7 @@ install:
   # - sudo apt-get install npm && npm install -g markdownlint-cli
 
 env:
-  - NXF_VER='0.32.0' # Specify a minimum NF version that should be tested and work
-  - NXF_VER='' # Plus: get the latest NF version and check that it works
+  - NXF_VER='20.01.0-edge' # Specify a minimum NF version that should be tested and work
 
 script:
   # Lint the pipeline code
