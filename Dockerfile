@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3:lastest
+FROM continuumio/miniconda3:latest
 LABEL authors="Alexander Fu Xi" \
       description="Docker image containing all requirements for MARVEL pipeline"
 
