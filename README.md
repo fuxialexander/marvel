@@ -6,7 +6,7 @@
 [![Nextflow](https://img.shields.io/badge/nextflow-%E2%89%A50.32.0-brightgreen.svg)](https://www.nextflow.io/)
 
 [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg)](http://bioconda.github.io/)
-[![Docker](https://img.shields.io/docker/automated/fuxialexander/marvel.svg)](https://hub.docker.com/r/fuxialexander/marvel)
+[![Docker](https://img.shields.io/docker/cloud/build/fuxialexander/marvel.svg)](https://hub.docker.com/r/fuxialexander/marvel)
 
 ## Introduction
 MARVEL is a pipeline for noncoding regulatory variants analysis using whole-genome sequencing data and cell-type specific epigenomic profiles. The workflow of MARVEL can be summarized using the following figure:
