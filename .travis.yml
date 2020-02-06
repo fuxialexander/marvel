@@ -19,7 +19,7 @@ before_install:
 install:
   # Install Nextflow
   - mkdir /tmp/nextflow && cd /tmp/nextflow
-  - wget -qO- get.nextflow.io | bash
+  - wget https://github.com/nextflow-io/nextflow/releases/download/v20.01.0-edge/nextflow
   - sudo ln -s /tmp/nextflow/nextflow /usr/local/bin/nextflow
   # Install nf-core/tools
   - pip install --upgrade pip
@@ -27,7 +27,7 @@ install:
   # Reset
   - mkdir ${TRAVIS_BUILD_DIR}/tests && cd ${TRAVIS_BUILD_DIR}/tests
   # Install markdownlint-cli
-  - sudo apt-get install npm && npm install -g markdownlint-cli
+  # - sudo apt-get install npm && npm install -g markdownlint-cli
 
 env:
   - NXF_VER='0.32.0' # Specify a minimum NF version that should be tested and work
@@ -39,4 +39,4 @@ script:
   # Lint the documentation
   # - markdownlint ${TRAVIS_BUILD_DIR} -c ${TRAVIS_BUILD_DIR}/.github/markdownlint.yml
   # Run the pipeline with the test profile
-  - nextflow run ${TRAVIS_BUILD_DIR} -profile test
+  - nextflow run ${TRAVIS_BUILD_DIR} -profile test,docker
