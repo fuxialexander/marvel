@@ -427,7 +427,7 @@ workflow region_test {
         glmpath = Channel.fromPath( "glmpath_0.98.tar.gz" )
         prepared = conda_setup_glmpath(glmpath)
     } else {
-        prepared = 1
+        prepared = Channel.value(1)
     }
     results = scan_test{
         chunks_sample_fasta
