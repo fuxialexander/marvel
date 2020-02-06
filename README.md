@@ -19,6 +19,11 @@ The pipeline is built using [Nextflow](https://www.nextflow.io), a workflow tool
 ## Quick Start
 
 i. Install [`nextflow`](https://nf-co.re/usage/installation)
+For now, please use the edge version by downloading from
+```bash
+wget https://github.com/nextflow-io/nextflow/releases/download/v20.01.0-edge/nextflow
+```
+and add it to your path. The reason is the normal release has a bug in conda integration.
 
 ii. Install one of [`docker`](https://docs.docker.com/engine/installation/), [`singularity`](https://www.sylabs.io/guides/3.0/user-guide/) or [`conda`](https://conda.io/miniconda.html)
 
@@ -32,7 +37,7 @@ iv. Start running your own analysis!
 
 <!-- TODO nf-core: Update the default command above used to run the pipeline -->
 ```bash
-nextflow run fuxialexander/marvel -profile <docker/singularity/conda> --enhancer "enhancer.bed" --promoter "promoter.bed" 
+nextflow run fuxialexander/marvel -profile <docker/singularity/conda> --regions "input/regions/*.bed" 
 ```
 
 See [usage docs](docs/usage.md) for all of the available options when running the pipeline.
