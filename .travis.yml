@@ -21,6 +21,7 @@ install:
   - mkdir /tmp/nextflow && cd /tmp/nextflow
   - wget https://github.com/nextflow-io/nextflow/releases/download/v20.01.0-edge/nextflow
   - sudo ln -s /tmp/nextflow/nextflow /usr/local/bin/nextflow
+  - sudo chmod a+x /usr/local/bin/nextflow
   # Install nf-core/tools
   - pip install --upgrade pip
   - pip install nf-core
