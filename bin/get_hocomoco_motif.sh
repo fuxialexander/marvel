@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # somehow MOODS only perform well with jaspar format converted PWMs
 # Download the JASPAR format motifs
 wget http://hocomoco11.autosome.ru/final_bundle/hocomoco11/full/HUMAN/mono/HOCOMOCOv11_full_HUMAN_mono_jaspar_format.txt
