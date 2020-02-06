@@ -164,9 +164,6 @@ process get_software_versions {
  * STEP 1 - Get Region Fasta
  */
 
-include gunzip as gunzip_ref_fasta from './modules/gunzip' params(pubdir: "${params.outdir}/sequences")
-include index_fasta as index_fasta_ref from './modules/index_fasta' params(pubdir: "${params.outdir}/sequences")
-include index_fasta as index_fasta_regions from './modules/index_fasta' params(pubdir: "${params.outdir}/sequences")
 
 process get_region_ref_fasta {
     tag "${name}"
@@ -174,16 +171,49 @@ process get_region_ref_fasta {
     publishDir "${params.outdir}/sequences"
 
     input:
-    file genome_fa
+    tuple val(ch_name), file(genome_fa)
     tuple val(name), file(bed)
 
     output:
-    file "${name}.fa"
+    tuple val(name), file("${name}.fa")
 
     script:
     """
     awk '{print \$1":"(\$2+1)"-"\$3}' $bed | xargs samtools faidx ${genome_fa} > ${name}.fa \
     """
+}
+
+process index_fasta {
+  tag "$name"
+  label 'process_light'
+  publishDir "${params.outdir}/sequences"
+
+  input:
+  tuple val(name), file(fa)
+
+  output:
+  tuple val(name), file(fa), file("${fa}.fai")
+
+  script:
+  """
+  samtools faidx ${fa} > ${fa}.fai
+  """
+}
+
+process gunzip {
+  label 'process_light'
+  publishDir "${params.outdir}/sequences"
+
+  input:
+  file gz
+
+  output:
+  file "$gz.baseName"
+
+  script:
+  """
+  gunzip -k --verbose --stdout --force $gz > $gz.baseName
+  """
 }
 
 process count_nucleotide_frequency {
@@ -192,7 +222,7 @@ process count_nucleotide_frequency {
     publishDir "${params.outdir}/sequences"
 
     input:
-    tuple val(name), file(fasta), file(fasta_index)
+    tuple val(name), file(fasta)
 
     output:
     tuple val(name), file("${name}.nuc_freq.txt")
@@ -210,8 +240,8 @@ process get_hocomoco_motif_in_jaspar_format {
 
     output:
     file "*.pwm"
-    file "motif_index.txt"
-    file "motif_symbol.txt"
+    // file "motif_index.txt"
+    // file "motif_symbol.txt"
     // TODO: Consider add option to use HOCOMOCO Core, or even other motif databases
 
     script:
@@ -243,11 +273,11 @@ process get_region_chunk_vcf_indexed {
     publishDir "${params.outdir}/variants/chunks"
 
     input:
-    file vcf
-    tuple val(name), file(region_chunk) 
+    tuple val(name), file(region_chunk), file(vcf)
 
     output:
-    tuple val(name), file("${name}.vcf.gz"), file("${name}.vcf.gz.tbi")
+    file("${name}.vcf.gz")
+    file("${name}.vcf.gz.tbi")
 
     script:
     """
@@ -264,12 +294,10 @@ process get_sample_fasta {
   publishDir "${params.outdir}/sequences/chunks"
 
   input:
-  tuple val(name), file(bed), file(vcf), file(vcf_index)
-  tuple file(fasta), file(fasta_index)
-  file phenocov
+  tuple val(name), file(bed), file(vcf), file(vcf_index), val(genome_name), file(fasta), file(fasta_index), file(phenocov)
 
   output:
-  tuple val(name), file("${name}.fa")
+  file("${name}.fa")
 
   script:
   """
@@ -296,19 +324,17 @@ process scan_test {
   label 'process_heavy'
   publishDir "${params.outdir}/test/chunks"
   input:
-  tuple val(name), file(fa)
-  file phenocov
-  file nuc_freq
+  tuple val(name), file(fa), file(phenocov), file(motifs), val(test_name), file(nuc_freq)
 
   output:
   file "*.npz"
 
   script:
   """
-  scan_test.py -m $params.outdir/motifs -s $fa \
+  scan_test.py -m motifs/*.pwm -s $fa \
   -P $phenocov -o $name -p $params.motif_scan_threshold --batch \
   --permutation-size-multiplier $params.permutation_multiplier \
-  --bg \$(cat $nuc_freq | tr '\n' ' ')
+  --bg \$(cat $nuc_freq | tr '\\n' ' ')
   """
 }
 
@@ -319,7 +345,7 @@ process test {
   input:
   tuple val(name), file(profiles)
   file phenocov
-  file nuc_freq
+  tuple val(test_name), file(nuc_freq)
 
   output:
   file "*.npz"
@@ -347,30 +373,37 @@ process summarize {
   summarize.py ${name}*real.npz ${name}*perm.npz ${name}*profile.npz
   """
 }
-  
+
+if (params.fasta) { 
+  if (hasExtension(params.fasta, 'gz')) {
+    ch_fasta = gunzip(file(params.fasta, checkIfExists: true)).map { file -> tuple(file.baseName, file) }
+  } else {
+    ch_fasta = Channel.fromPath(params.fasta).map { file -> tuple(file.baseName, file) }
+  }
+}
+
+regions = Channel.fromPath( params.regions )
+                    .map { file -> tuple(file.baseName, file) }
+
+
 workflow region_test {
   get: region_bed
   main:
   vcf = Channel.fromPath( params.vcf )
-  compressedReference = hasExtension(params.fasta, 'gz') 
-
-  if (params.fasta) { 
-    if (compressedReference) {
-      ch_fasta = gunzip_ref_fasta(file(params.fasta, checkIfExists: true))
-    } else {
-      ch_fasta = file(params.fasta, checkIfExists: true)
-    }
-  }
-  regions_fasta = get_region_ref_fasta(ch_fasta, region_bed)
-  fasta_indexed = index_fasta_ref(ch_fasta)
-  nuc_freq = count_nucleotide_frequency(regions_fasta)
-  motif = get_hocomoco_motif_in_jaspar_format()
-  chunks_bed = chunkify_regions(region_bed).map { file -> tuple(file.baseName, file) }
-  chunks_vcf_indexed = get_region_chunk_vcf_indexed(vcf, chunks_bed)
-  chunks_bed_vcf = chunks_bed.join(chunks_vcf_indexed)
   phenocov = Channel.fromPath( params.phenocov )
-  chunks_sample_fasta = get_sample_fasta(chunks_bed_vcf, fasta_indexed, phenocov)
-  results = scan_test(chunks_sample_fasta, phenocov, nuc_freq).flatten()
+
+
+  regions_fasta = get_region_ref_fasta(ch_fasta, region_bed)
+  fasta_indexed = index_fasta(ch_fasta)
+  nuc_freq = count_nucleotide_frequency(regions_fasta)
+  motifs = get_hocomoco_motif_in_jaspar_format()
+  chunks_bed = chunkify_regions(region_bed).flatten().map { file -> tuple(file.baseName, file) }
+  chunks_vcf_indexed = get_region_chunk_vcf_indexed(chunks_bed.combine(vcf))
+  chunks_vcf_indexed = chunks_vcf_indexed[0].map { file -> tuple(file.simpleName, file) }.merge(chunks_vcf_indexed[1])
+  chunks_bed_vcf = chunks_bed.join(chunks_vcf_indexed)
+  chunks_sample_fasta = get_sample_fasta(chunks_bed_vcf.combine(fasta_indexed).combine(phenocov))
+  motifs = Channel.fromPath( params.outdir+'/motifs/' )
+  results = scan_test(chunks_sample_fasta.map { file -> tuple(file.baseName, file) }.combine(phenocov).combine(motifs).combine(nuc_freq)).flatten()
 }
 
 // workflow gene_test {
@@ -380,18 +413,14 @@ workflow region_test {
 // }
 
 workflow {
-  enhancers = Channel.fromPath( params.enhancer )
-                     .map { file -> tuple(file.baseName, files) }
-  promoters = Channel.fromPath( params.promoter )
-                     .map { file -> tuple(file.baseName, files) }
-  // Enhancer-based test
-  if (params.enhancer_bed) {
-    enhancer_results = region_test(enhancers).filter { it.toString().endsWith("_profiles.npz") }
+  main:
+
+  // Region-based test
+  if (params.regions) {
+    regions_results = region_test(regions)
   }
-  // Promoter-based test
-  if (params.promoter_bed) {
-    promoter_results = region_test(promoters).filter { it.toString().endsWith("_profiles.npz") }
-  }
+
+
   // Genes-based test
   // if (enhancer_profiles && promoter_profiles) {
   //   gene_test(enhancers, promoters)
@@ -403,7 +432,7 @@ workflow {
  */
 workflow.onComplete {
 
-    Set up the e-mail variables
+    // Set up the e-mail variables
     def subject = "[MARVEL] Successful: $workflow.runName"
     if (!workflow.success) {
       subject = "[MARVEL] FAILED: $workflow.runName"
@@ -450,7 +479,7 @@ workflow.onComplete {
     def email_html = html_template.toString()
 
     // Render the sendmail template
-    def smail_fields = [ email: email_address, subject: subject, email_txt: email_txt, email_html: email_html, baseDir: "$baseDir", mqcFile: mqc_report, mqcMaxSize: params.maxMultiqcEmailFileSize.toBytes() ]
+    def smail_fields = [ email: email_address, subject: subject, email_txt: email_txt, email_html: email_html, baseDir: "$baseDir" ]
     def sf = new File("$baseDir/assets/sendmail_template.txt")
     def sendmail_template = engine.createTemplate(sf).make(smail_fields)
     def sendmail_html = sendmail_template.toString()
