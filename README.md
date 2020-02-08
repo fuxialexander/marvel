@@ -19,9 +19,8 @@ The pipeline is built using [Nextflow](https://www.nextflow.io), a workflow tool
 ## Quick Start
 
 i. Install [`nextflow`](https://nf-co.re/usage/installation)
-For now, please use the edge version by downloading from
 ```bash
-wget https://github.com/nextflow-io/nextflow/releases/download/v20.01.0-edge/nextflow
+curl -s https://get.nextflow.io | bash
 ```
 and add it to your path. The reason is the normal release has a bug in conda integration.
 
