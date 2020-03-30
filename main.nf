@@ -284,7 +284,7 @@ process get_region_chunk_vcf_indexed {
     publishDir "${params.outdir}/variants/chunks"
 
     input:
-    tuple val(name), file(region_chunk), file(vcf)
+    tuple val(name), file(region_chunk), file(vcf), file(vcf_index)
 
     output:
     file("${name}.vcf.gz")
@@ -403,6 +403,7 @@ workflow region_test {
     get: region_bed
     main:
     vcf = Channel.fromPath( params.vcf )
+    vcf_index = Channel.fromPath( params.vcf_index )
     phenocov = Channel.fromPath( params.phenocov )
     regions_fasta = get_region_ref_fasta(ch_fasta.combine(region_bed))
     fasta_indexed = index_fasta(ch_fasta)
@@ -414,7 +415,7 @@ workflow region_test {
     chunks_bed = chunkify_regions(region_bed)
         .flatten()
         .map { file -> tuple(file.baseName, file) }
-    chunks_vcf_indexed = get_region_chunk_vcf_indexed( chunks_bed.combine( vcf ) )
+    chunks_vcf_indexed = get_region_chunk_vcf_indexed( chunks_bed.combine( vcf ).combine( vcf_index ) )
     chunks_vcf_indexed = chunks_vcf_indexed[0]
         .map { file -> tuple(file.simpleName, file) }
         .merge(chunks_vcf_indexed[1])
