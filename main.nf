@@ -9,12 +9,7 @@
  ----------------------------------------------------------------------------------------
  */
 nextflow.preview.dsl=2
-include {
-    cli_banner
-    checkHostname
-    create_workflow_summary
-    get_software_versions
-} from './modules/workflow_helper'
+include {cli_banner; checkHostname; create_workflow_summary; get_software_versions} from './modules/workflow_helper'
 
 // TODO Clear iGenome in readme and usage
 def helpMessage() {

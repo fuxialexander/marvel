@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y procps && apt-get clean -y
 COPY environment.yml /
 COPY glmpath_0.98.tar.gz /
 RUN conda env create -f /environment.yml && conda clean -a
-ENV PATH /opt/conda/envs/nf-core-marvel-1.1dev/bin:$PATH
+ENV PATH /opt/conda/envs/fuxialexander-marvel-1.1dev/bin:$PATH
 RUN R -e "install.packages(c('glmpath'), dependencies=TRUE, repos='http://cran.rstudio.com/')"
 RUN R CMD INSTALL glmpath_0.98.tar.gz
 
@@ -27,21 +27,21 @@ RUN set -e \
       && apt-get clean \
       && rm -rf /var/lib/apt/lists/*
 
-RUN set -e \
-      && wget https://raw.githubusercontent.com/dceoy/print-github-tags/master/print-github-tags \
-      && mv print-github-tags /usr/local/bin/print-github-tags
-RUN set -eo pipefail \
-      && chmod +x /usr/local/bin/print-github-tags \
-      && print-github-tags --release --latest --tar samtools/htslib \
-        | xargs -i curl -SL {} -o /tmp/htslib.tar.gz \
-      && tar xvf /tmp/htslib.tar.gz -C /usr/local/src --remove-files \
-      && mv /usr/local/src/htslib-* /usr/local/src/htslib \
-      && cd /usr/local/src/htslib \
-      && autoheader \
-      && autoconf \
-      && ./configure \
-      && make \
-      && make install
+# RUN set -e \
+#       && wget https://raw.githubusercontent.com/dceoy/print-github-tags/master/print-github-tags \
+#       && mv print-github-tags /usr/local/bin/print-github-tags
+# RUN set -eo pipefail \
+#       && chmod +x /usr/local/bin/print-github-tags \
+#       && print-github-tags --release --latest --tar samtools/htslib \
+#         | xargs -i curl -SL {} -o /tmp/htslib.tar.gz \
+#       && tar xvf /tmp/htslib.tar.gz -C /usr/local/src --remove-files \
+#       && mv /usr/local/src/htslib-* /usr/local/src/htslib \
+#       && cd /usr/local/src/htslib \
+#       && autoheader \
+#       && autoconf \
+#       && ./configure \
+#       && make \
+#       && make install
 
 # RUN set -eo pipefail \
 #       && print-github-tags --release --latest --tar samtools/bcftools \

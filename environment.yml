@@ -1,6 +1,6 @@
 # You can use this file to create a conda environment for this pipeline:
 #   conda env create -f environment.yml
-name: nf-core-marvel-1.1dev
+name: fuxialexander-marvel-1.1dev
 channels:
   - conda-forge
   - r
@@ -27,6 +27,6 @@ dependencies:
   - libiconv=1.15
   - pip:
           - moods-python==1.9.4.1
-          - nf-core==1.7
+          # - nf-core==1.7
           - assocplots==0.0.2
 

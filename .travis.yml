@@ -24,7 +24,7 @@ install:
   - sudo chmod a+x /usr/local/bin/nextflow
   # Install nf-core/tools
   - pip install --upgrade pip
-  - pip install nf-core
+  # - pip install nf-core
   # Reset
   - cd ${TRAVIS_BUILD_DIR}/
   - sudo chmod a+x bin/*
@@ -32,7 +32,7 @@ install:
   # - sudo apt-get install npm && npm install -g markdownlint-cli
 
 env:
-  - NXF_VER='20.01.0-edge' # Specify a minimum NF version that should be tested and work
+  - NXF_VER='20.04.1' # Specify a minimum NF version that should be tested and work
 
 script:
   # Lint the pipeline code
