@@ -9,6 +9,9 @@ channels:
 dependencies:
   - biopython=1.74
   - rpy2=3.1.0
+  - samtools=1.10
+  - bcftools=1.10.2
+  - bedtools=2.29.2
   - matplotlib-base=3.1.1
   - numpy=1.17.2
   - pandas=0.25.2
@@ -25,4 +28,5 @@ dependencies:
   - pip:
           - moods-python==1.9.4.1
           - nf-core==1.7
+          - assocplots==0.0.2
 
