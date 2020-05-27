@@ -1,5 +1,5 @@
 {
-    "python.pythonPath": "/home/xfu/miniconda3/envs/nf-core-marvel-1.0dev/bin/python",
+    "python.pythonPath": "work/conda/nf-core-marvel-1.1dev-27ada4a52954e6099e8cbf65dc62e8f7/bin/python",
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": true
 }
