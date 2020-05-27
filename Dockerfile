@@ -43,26 +43,26 @@ RUN set -eo pipefail \
       && make \
       && make install
 
-RUN set -eo pipefail \
-      && print-github-tags --release --latest --tar samtools/bcftools \
-        | xargs -i curl -SL {} -o /tmp/bcftools.tar.gz \
-      && tar xvf /tmp/bcftools.tar.gz -C /usr/local/src --remove-files \
-      && mv /usr/local/src/bcftools-* /usr/local/src/bcftools \
-      && cd /usr/local/src/bcftools \
-      && autoheader \
-      && autoconf \
-      && ./configure --enable-libgsl --enable-perl-filters \
-      && make \
-      && make install
+# RUN set -eo pipefail \
+#       && print-github-tags --release --latest --tar samtools/bcftools \
+#         | xargs -i curl -SL {} -o /tmp/bcftools.tar.gz \
+#       && tar xvf /tmp/bcftools.tar.gz -C /usr/local/src --remove-files \
+#       && mv /usr/local/src/bcftools-* /usr/local/src/bcftools \
+#       && cd /usr/local/src/bcftools \
+#       && autoheader \
+#       && autoconf \
+#       && ./configure --enable-libgsl --enable-perl-filters \
+#       && make \
+#       && make install
 
-RUN set -eo pipefail \
-      && print-github-tags --release --latest --tar samtools/samtools \
-        | xargs -i curl -SL {} -o /tmp/samtools.tar.gz \
-      && tar xvf /tmp/samtools.tar.gz -C /usr/local/src --remove-files \
-      && mv /usr/local/src/samtools-* /usr/local/src/samtools \
-      && cd /usr/local/src/samtools \
-      && autoheader \
-      && autoconf \
-      && ./configure \
-      && make \
-      && make install
+# RUN set -eo pipefail \
+#       && print-github-tags --release --latest --tar samtools/samtools \
+#         | xargs -i curl -SL {} -o /tmp/samtools.tar.gz \
+#       && tar xvf /tmp/samtools.tar.gz -C /usr/local/src --remove-files \
+#       && mv /usr/local/src/samtools-* /usr/local/src/samtools \
+#       && cd /usr/local/src/samtools \
+#       && autoheader \
+#       && autoconf \
+#       && ./configure \
+#       && make \
+#       && make install
