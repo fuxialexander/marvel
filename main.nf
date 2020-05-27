@@ -9,10 +9,17 @@
  ----------------------------------------------------------------------------------------
  */
 nextflow.preview.dsl=2
+include {
+    cli_banner
+    checkHostname
+    create_workflow_summary
+    get_software_versions
+} from './modules/workflow_helper'
 
+// TODO Clear iGenome in readme and usage
 def helpMessage() {
     // TODO nf-core: Add to this help message with new command line parameters
-    log.info nfcoreHeader()
+    log.info cli_banner()
     log.info"""
 
     Usage:
@@ -22,13 +29,19 @@ def helpMessage() {
     nextflow run marvel --reads '*_R{1,2}.fastq.gz' -profile docker
 
     Mandatory arguments:
-      --reads                       Path to input data (must be surrounded with quotes)
       -profile                      Configuration profile to use. Can use multiple (comma separated)
                                     Available: conda, docker, singularity, awsbatch, test and more.
-
+      --enhancer                    Bed file of enhancers
+      --promoter                    Bed file of promoters
+      --vcf                         VCF file for genotyped variants
+      --vcf_index                   .tbi index of VCF file 
+      --phenocov                    Sample phenotype and covariates file
+      --fasta                       Reference FASTA
+      --chunk_size                  Number of regions in each chunk
+      --permutation_multiplier      Number of permutations to do
+      --motif_scan_threshold        P-value threshold for motif scanning
     Options:
-      --genome                      Name of iGenomes reference
-      --singleEnd                   Specifies that the input is single end reads
+      --genome                      Name of genome reference
 
     References                      If not specified in the configuration file or you wish to overwrite any of the references.
       --fasta                       Path to Fasta reference
@@ -57,7 +70,7 @@ if (params.help) {
 
 // Check if genome exists in the config file
 if (params.genomes && params.genome && !params.genomes.containsKey(params.genome)) {
-    exit 1, "The provided genome '${params.genome}' is not available in the iGenomes file. Currently the available genomes are ${params.genomes.keySet().join(", ")}"
+    exit 1, "The provided genome '${params.genome}' is not available in the genomes file. Currently the available genomes are ${params.genomes.keySet().join(", ")}"
 }
 params.fasta = params.genome ? params.genomes[ params.genome ].fasta ?: false : false
 
@@ -79,18 +92,25 @@ if ( workflow.profile == 'awsbatch') {
 }
 
 // Stage config files
+// ch_output_docs = file("$baseDir/docs/output.md", checkIfExists: true)
 
 ch_output_docs = file("$baseDir/docs/output.md", checkIfExists: true)
 
 // Header log info
-log.info nfcoreHeader()
+log.info cli_banner()
 def summary = [:]
 if (workflow.revision) summary['Pipeline Release'] = workflow.revision
 summary['Run Name']         = custom_runName ?: workflow.runName
-// TODO nf-core: Report custom parameters here
-// summary['Reads']            = params.reads
+// TODO: Report custom parameters here
+summary['Enhancer'] = params.enhancer
+summary['Promoter'] = params.promoter
+summary['Variant'] = params.vcf
+summary['Variant index'] = params.vcf_index
+summary['Phenotype'] = params.phenocov
+summary['Region split chunk size'] = params.chunk_size
+summary['Permuation times'] = params.permutation_multiplier
+summary['Motif scanning threshold'] = params.motif_scan_threshold
 summary['Fasta Ref']        = params.fasta
-// summary['Data Type']        = params.singleEnd ? 'Single-End' : 'Paired-End'
 summary['Max Resources']    = "$params.max_memory memory, $params.max_cpus cpus, $params.max_time time per job"
 if (workflow.containerEngine) summary['Container'] = "$workflow.containerEngine - $workflow.container"
 summary['Output dir']       = params.outdir
@@ -109,7 +129,6 @@ if (params.config_profile_url)         summary['Config URL']         = params.co
 if (params.email || params.email_on_fail) {
     summary['E-mail Address']    = params.email
     summary['E-mail on failure'] = params.email_on_fail
-    summary['MultiQC maxsize']   = params.maxMultiqcEmailFileSize
 }
 log.info summary.collect { k,v -> "${k.padRight(18)}: $v" }.join("\n")
 log.info "-\033[2m--------------------------------------------------\033[0m-"
@@ -117,22 +136,6 @@ log.info "-\033[2m--------------------------------------------------\033[0m-"
 // Check the hostnames against configured profiles
 checkHostname()
 
-def create_workflow_summary(summary) {
-    def yaml_file = workDir.resolve('workflow_summary_mqc.yaml')
-    yaml_file.text  = """
-    id: 'nf-core-marvel-summary'
-    description: " - this information is collected when the pipeline is started."
-    section_name: 'MARVEL Workflow Summary'
-    section_href: 'https://github.com/fuxialexander/marvel'
-    plot_type: 'html'
-    data: |
-        <dl class=\"dl-horizontal\">
-${summary.collect { k,v -> "            <dt>$k</dt><dd><samp>${v ?: '<span style=\"color:#999999;\">N/A</a>'}</samp></dd>" }.join("\n")}
-        </dl>
-    """.stripIndent()
-
-    return yaml_file
-}
 
 /*
  * Parse software version numbers
@@ -330,10 +333,51 @@ process get_sample_fasta {
   """
 }
 
+process summarize {
+    // Summarize result and plot qq-plots, AUROC, etc
+    tag "${name}"
+    label 'process_medium'
+    publishDir "${params.outdir}/summary/"
+    input:
+    tuple val(name), file(results)
+    file phenocov
+
+    output:
+    file "*.pdf"
+    file "*.xlsx"
+
+    script:
+    """
+    summarize.py ${name}*real.npz ${name}*perm.npz ${name}*profile.npz
+    """
+}
+
+if (params.fasta) { 
+    ch_fasta = Channel.fromPath(params.fasta)
+        .map { file -> tuple(file.baseName, file) }
+}
+
+if (params.enhancer) {
+    enhancer = Channel.fromPath( params.enhancer )
+    .map { file -> tuple(file.baseName, file) }
+    regions = enhancer
+}
+
+if (params.promoter) {
+    promoter = Channel.fromPath( params.promoter )
+    .map { file -> tuple(file.baseName, file) }
+    regions = promoter
+}
+
+if (params.enhancer && params.promoter) {
+    regions = enhancer.concat(promoter)
+}
+
 process scan_test {
+    // first scan motif then test, useful in region-level test
     tag "${name}"
     label 'process_heavy'
-    publishDir "${params.outdir}/test/chunks"
+    publishDir "${params.outdir}/test/${test_name}_chunks"
     input:
     tuple val(name), file(fa), file(phenocov), file(motifs), val(test_name), file(nuc_freq), val(prepared)
 
@@ -349,58 +393,8 @@ process scan_test {
   """
 }
 
-process test {
-    tag "${name}"
-    label 'process_heavy'
-    publishDir "${params.outdir}/test/chunks"
-    input:
-    tuple val(name), file(profiles)
-    file phenocov
-    tuple val(test_name), file(nuc_freq)
-
-    output:
-    file "*.npz"
-
-    script:
-    """
-  test.py -P $phenocov -o $name --permutation-size-multiplier $params.permutation_multiplier 
-  """
-}
-
-process summarize {
-    tag "${name}"
-    label 'process_medium'
-    publishDir "${params.outdir}/summary/"
-    input:
-    tuple val(name), file(results)
-    file phenocov
-
-    output:
-    file "*.pdf"
-    file "*.xlsx"
-
-    script:
-    """
-  summarize.py ${name}*real.npz ${name}*perm.npz ${name}*profile.npz
-  """
-}
-
-if (params.fasta) { 
-    if (hasExtension(params.fasta, 'gz')) {
-        ch_fasta = gunzip(file(params.fasta, checkIfExists: true))
-            .map { file -> tuple(file.baseName, file) }
-    } else {
-        ch_fasta = Channel.fromPath(params.fasta)
-            .map { file -> tuple(file.baseName, file) }
-    }
-}
-
-regions = Channel.fromPath( params.regions )
-    .map { file -> tuple(file.baseName, file) }
-
-
 workflow region_test {
-    get: region_bed
+    take: region_bed
     main:
     vcf = Channel.fromPath( params.vcf )
     vcf_index = Channel.fromPath( params.vcf_index )
@@ -442,18 +436,23 @@ workflow region_test {
         .flatten()
 }
 
-// workflow gene_test {
-//   get: enhancer_bed, promoter_bed
-//   main:
-//   get_gene_profile(enhancer_bed, promoter_bed, params.outdir + '/test/chunks/*')
+// include 'modules/gene_test'
+
+
+// workflow summary {
+//     get: result_path
+//     main:
+//     results = Channel.fromPath(result_path)
+
 // }
 
 workflow {
     main:
     // Region-based test
-    if (params.regions) {
-        regions_results = region_test(regions)
+    if (regions) {
+        region_test(regions)
     }
+
 
 
     // Genes-based test
@@ -564,43 +563,3 @@ workflow.onComplete {
 }
 
 
-def nfcoreHeader(){
-    // Log colors ANSI codes
-    c_reset = params.monochrome_logs ? '' : "\033[0m";
-    c_dim = params.monochrome_logs ? '' : "\033[2m";
-    c_white = params.monochrome_logs ? '' : "\033[0;37m";
-
-    return """_${c_dim}_______________________________________________${c_reset}_
-    ${c_white}_   _    __     ____   _    _   _____    _${c_reset}
-    ${c_white}/  /|    / |    /    ) |   /    /    '   /${c_reset}
-${c_dim}---${c_reset}${c_white}/| /${c_reset}${c_dim}-${c_reset}${c_white}|${c_reset}${c_dim}---${c_reset}${c_white}/__|${c_reset}${c_dim}---${c_reset}${c_white}/___ /${c_reset}${c_dim}--${c_reset}${c_white}|${c_reset}${c_dim}--${c_reset}${c_white}/${c_reset}${c_dim}----${c_reset}${c_white}/__${c_reset}${c_dim}------${c_reset}${c_white}/${c_reset}${c_dim}----${c_reset}
-  ${c_white}/ |/  |  /   |  /    |   | /    /        /${c_reset}
-_${c_white}/${c_reset}${c_dim}__${c_reset}${c_white}/${c_reset}${c_dim}___${c_reset}${c_white}|${c_reset}${c_dim}_${c_reset}${c_white}/${c_reset}${c_dim}____${c_reset}${c_white}|${c_reset}${c_dim}_${c_reset}${c_white}/${c_reset}${c_dim}_____${c_reset}${c_white}|${c_reset}${c_dim}___${c_reset}${c_white}|/${c_reset}${c_dim}____${c_reset}${c_white}/____,${c_reset}${c_dim}___${c_reset}${c_white}/____/${c_reset}${c_dim}_${c_reset}
-
-    """.stripIndent()
-}
-
-def hasExtension(it, extension) {
-    it.toString().toLowerCase().endsWith(extension.toLowerCase())
-}
-
-def checkHostname(){
-    def c_reset = params.monochrome_logs ? '' : "\033[0m"
-    def c_white = params.monochrome_logs ? '' : "\033[0;37m"
-    def c_red = params.monochrome_logs ? '' : "\033[1;91m"
-    def c_yellow_bold = params.monochrome_logs ? '' : "\033[1;93m"
-    if (params.hostnames) {
-        def hostname = "hostname".execute().text.trim()
-        params.hostnames.each { prof, hnames ->
-            hnames.each { hname ->
-                if (hostname.contains(hname) && !workflow.profile.contains(prof)) {
-                    log.error "====================================================\n" +
-                        "  ${c_red}WARNING!${c_reset} You are running with `-profile $workflow.profile`\n" +
-                        "  but your machine hostname is ${c_white}'$hostname'${c_reset}\n" +
-                        "  ${c_yellow_bold}It's highly recommended that you use `-profile $prof${c_reset}`\n" +
-                        "============================================================"
-                }
-            }
-        }
-    }
-}

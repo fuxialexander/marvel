@@ -312,18 +312,19 @@ if args.p_val is not None or args.t is not None:
     phenocov = phenocov.sort_values("samples")
     seq = seqparse(args.sequence_file, "fasta")
     seq_table = pd.DataFrame([(i.id, i.description.split(' ')[1], str(i.seq)) for i in seq], columns=['samples', 'region', 'seq'])
-    seq_table = seq_table[seq_table.samples.isin(phenocov.samples)]
-    seq_table = seq_table.sort_values("region")
-    region_list = pd.unique(seq_table.region)
+    seq_table = seq_table[seq_table.samples.isin(phenocov.samples)].drop_duplicates()
+    region_list = pd.unique(seq_table.region.sort_values())
     print("{}: scanning each regions".format(os.path.basename(__file__)), file=sys.stderr)
 
 
     y = phenocov.pheno.values
     covariates = phenocov.iloc[:,3:].values
     profiles = []
+    regions = []
     stats = []
     sels = []
     coefs = []
+    perm_regions = []
     perm_stats = []
     perm_sels = []
 
@@ -337,16 +338,20 @@ if args.p_val is not None or args.t is not None:
         stats.append(stat)
         sels.append(sel)
         coefs.append(coef)
+        regions.append(region)
 
         perm_stat, perm_sel = perm_test(profile, y, covariates)
         perm_stats.append(perm_stat)
         perm_sels.append(perm_sel)
+        perm_regions.append(region)
 
     stats = np.array(stats)
     sels = np.array(sels)
     coefs = np.array(coefs)
+    regions = np.array(regions)
     perm_stats = np.array(perm_stats)
     perm_sels = np.array(perm_sels)
-    np.savez(file=args.output_file+"_real_results.npz", stats=stats, sels=sels, coefs=coefs)
-    np.savez(file=args.output_file+"_perm_results.npz", stats=perm_stats, sels=perm_sels)
+    perm_regions = np.array(perm_regions)
+    np.savez(file=args.output_file+"_real_results.npz", stats=stats, sels=sels, coefs=coefs, regions=regions)
+    np.savez(file=args.output_file+"_perm_results.npz", stats=perm_stats, sels=perm_sels, regions=perm_regions)
     save_npz(args.output_file+"_profiles.npz", vstack(profiles))
