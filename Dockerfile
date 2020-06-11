@@ -10,7 +10,7 @@ RUN conda env create -f /environment.yml && conda clean -a
 ENV PATH /opt/conda/envs/fuxialexander-marvel-1.1dev/bin:$PATH
 RUN R -e "install.packages(c('glmpath'), dependencies=TRUE, repos='http://cran.rstudio.com/')"
 RUN R CMD INSTALL glmpath_0.98.tar.gz
-
+RUN pip install https://github.com/khramts/assocplots/archive/master.zip
 
 RUN set -e \
       && ln -sf /bin/bash /bin/sh

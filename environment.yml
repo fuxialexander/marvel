@@ -28,5 +28,5 @@ dependencies:
   - pip:
           - moods-python==1.9.4.1
           # - nf-core==1.7
-          - assocplots==0.0.2
+          # - assocplots==0.0.2
 
