@@ -8,9 +8,8 @@
  https://github.com/fuxialexander/marvel
  ----------------------------------------------------------------------------------------
  */
-nextflow.preview.dsl=2
+nextflow.preview.dsl = 2
 include {cli_banner; checkHostname; create_workflow_summary; get_software_versions} from './modules/workflow_helper'
-
 // TODO Clear iGenome in readme and usage
 def helpMessage() {
     // TODO nf-core: Add to this help message with new command line parameters
@@ -161,7 +160,7 @@ process get_software_versions {
 /*
  * STEP 1 - Get Region Fasta
  */
-process conda_setup_glmpath {
+process conda_setup_dep {
     input: 
     file glmpath
     
@@ -172,6 +171,7 @@ process conda_setup_glmpath {
     """
     R -e "install.packages(c('glmpath'), dependencies=TRUE, repos='http://cran.rstudio.com/')" \
       && R CMD INSTALL $glmpath
+    pip install https://github.com/khramts/assocplots/archive/master.zip
     """
 }
 
@@ -205,8 +205,8 @@ process index_fasta {
 
     script:
     """
-  samtools faidx ${fa} > ${fa}.fai
-  """
+    samtools faidx ${fa} > ${fa}.fai
+    """
 }
 
 process gunzip {
@@ -221,8 +221,8 @@ process gunzip {
 
     script:
     """
-  gunzip -k --verbose --stdout --force $gz > $gz.baseName
-  """
+    gunzip -k --verbose --stdout --force $gz > $gz.baseName
+    """
 }
 
 process count_nucleotide_frequency {
@@ -310,22 +310,58 @@ process get_sample_fasta {
 
     script:
     """
-  for sample in `tail -n +2 $phenocov | cut -f1 | sort | tr '\n' '\t' `; do \
-    bcftools view --trim-alt-alleles -s \$sample $vcf \
-    --min-ac=1 --no-update -Ou \
-    | bcftools norm -Ou -m-any -f $fasta \
-    | bcftools norm -d both -Ov \
-    | awk '\$5!~"<*:"{print}' \
-    | bgzip > ${name}.norm.vcf.gz;
+    for sample in `tail -n +2 $phenocov | cut -f1 | sort | tr '\n' '\t' `; do \
+        bcftools view --trim-alt-alleles -s \$sample $vcf \
+        --min-ac=1 --no-update -Ou \
+        | bcftools norm -Ou -m-any -f $fasta \
+        | bcftools norm -d both -Ov \
+        | awk '\$5!~"<*:"{print}' \
+        | bgzip > ${name}.norm.vcf.gz;
 
-    tabix -f -p vcf ${name}.norm.vcf.gz;
+        tabix -f -p vcf ${name}.norm.vcf.gz;
 
-    awk '{print \$1":"(\$2)+1"-"\$3}' $bed \
-    | xargs samtools faidx $fasta \
-    | bcftools consensus -H A ${name}.norm.vcf.gz \
-    | sed "s/^>/>\$sample /" >> ${name}.fa ;
-  done
-  """
+        awk '{print \$1":"(\$2)+1"-"\$3}' $bed \
+        | xargs samtools faidx $fasta \
+        | bcftools consensus -H A ${name}.norm.vcf.gz \
+        | sed "s/^>/>\$sample /" >> ${name}.fa ;
+    done
+    """
+}
+
+process scan_test {
+    // first scan motif then test, useful in region-level test
+    tag "${name}"
+    label 'process_heavy'
+    publishDir "${params.outdir}/test/${test_name}_chunks"
+    input:
+    tuple val(name), file(fa), file(phenocov), file(motifs), val(test_name), file(nuc_freq), val(prepared)
+
+    output:
+    file '*.npz'
+
+    script:
+    """
+    scan_test.py -m $motifs/*.pwm -s $fa \
+    -P $phenocov -o $name -p $params.motif_scan_threshold --batch \
+    --permutation-size-multiplier $params.permutation_multiplier \
+    --bg \$(cat $nuc_freq | tr '\\n' ' ')
+    """
+}
+
+process collect_results {
+    tag "${name}"
+    label 'process_heavy'
+    publishDir "${params.outdir}/test/"
+    input:
+    tuple val(name), file(chunk_results)
+
+    output:
+    file '*.npz'
+
+    script:
+    """
+    collect_results.py $name $chunk_results 
+    """
 }
 
 process summarize {
@@ -368,26 +404,6 @@ if (params.enhancer && params.promoter) {
     regions = enhancer.concat(promoter)
 }
 
-process scan_test {
-    // first scan motif then test, useful in region-level test
-    tag "${name}"
-    label 'process_heavy'
-    publishDir "${params.outdir}/test/${test_name}_chunks"
-    input:
-    tuple val(name), file(fa), file(phenocov), file(motifs), val(test_name), file(nuc_freq), val(prepared)
-
-    output:
-    file "*.npz"
-
-    script:
-    """
-  scan_test.py -m $motifs/*.pwm -s $fa \
-  -P $phenocov -o $name -p $params.motif_scan_threshold --batch \
-  --permutation-size-multiplier $params.permutation_multiplier \
-  --bg \$(cat $nuc_freq | tr '\\n' ' ')
-  """
-}
-
 workflow region_test {
     take: region_bed
     main:
@@ -400,7 +416,7 @@ workflow region_test {
     motifs = get_hocomoco_motif_in_jaspar_format()
         .flatten()
         .first()
-        .map{ file -> file.getParent() }
+        .map { file -> file.getParent() }
     chunks_bed = chunkify_regions(region_bed)
         .flatten()
         .map { file -> tuple(file.baseName, file) }
@@ -415,20 +431,21 @@ workflow region_test {
             .combine(phenocov) }
     if ("$workflow.profile" =~ /conda/) {
         glmpath = Channel.fromPath( "glmpath_0.98.tar.gz" )
-        prepared = conda_setup_glmpath(glmpath)
+        prepared = conda_setup_dep(glmpath)
     } else {
         prepared = Channel.value(1)
     }
-    results = scan_test{
+    results = scan_test {
         chunks_sample_fasta
             .map { file -> tuple(file.baseName, file) }
             .combine(phenocov)
             .combine(motifs)
             .combine(nuc_freq)
             .combine(prepared)
-            .filter{ it[0].startsWith(it[4]) }
+            .filter { it[0].startsWith(it[4]) }
     }
-        .flatten()
+        .unique()
+        .subscribe { println it }
 }
 
 // include 'modules/gene_test'
@@ -518,11 +535,17 @@ workflow.onComplete {
         try {
             if ( params.plaintext_email ){ throw GroovyException('Send plaintext e-mail, not HTML') }
             // Try to send HTML e-mail using sendmail
-            [ 'sendmail', '-t' ].execute() << sendmail_html
+            sendMail( to: email_address,
+                      subject: subject,
+                      body: email_html )
+            // [ 'sendmail', '-t' ].execute() << sendmail_html
             log.info "[MARVEL] Sent summary e-mail to $email_address (sendmail)"
         } catch (all) {
             // Catch failures and try with plaintext
-            [ 'mail', '-s', subject, email_address ].execute() << email_txt
+            sendMail( to: email_address,
+                      subject: subject,
+                      body: email_txt )
+            // [ 'mail', '-s', subject, email_address ].execute() << email_txt
             log.info "[MARVEL] Sent summary e-mail to $email_address (mail)"
         }
     }
