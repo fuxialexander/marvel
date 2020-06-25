@@ -42,7 +42,7 @@ def checkHostname(){
 def create_workflow_summary(summary) {
     def yaml_file = workDir.resolve('workflow_summary_mqc.yaml')
     yaml_file.text  = """
-    id: 'nf-core-marvel-summary'
+    id: 'fuxialexander-marvel-summary'
     description: " - this information is collected when the pipeline is started."
     section_name: 'MARVEL Workflow Summary'
     section_href: 'https://github.com/fuxialexander/marvel'
