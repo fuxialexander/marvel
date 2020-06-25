@@ -7,3 +7,4 @@ tests/test_data
 *.pyc
 .vscode/tags
 __pycache__/
+conf/mail.config

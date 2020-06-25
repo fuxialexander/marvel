@@ -300,6 +300,7 @@ process get_region_chunk_vcf_indexed {
 process get_sample_fasta {
     tag "${name}"
     label 'process_high'
+    cache 'lenient'
     publishDir "${params.outdir}/sequences/chunks"
 
     input:
@@ -328,6 +329,47 @@ process get_sample_fasta {
     """
 }
 
+process get_promoter_enhancer_pair {
+    tag "get_promoter_enhancer_pair"
+    label 'process_medium'
+    publishDir "${params.outdir}/regions/"
+    input:
+    tuple(pname, promoter)
+    tuple(ename, enhancer)
+    file(chrom_size)
+
+    output:
+    file "promoter_enhancer_pair.txt"
+
+    script:
+    """
+    awk '{OFS="\t"; print \$1,\$2,\$3,\$1":"\$2"-"\$3}' $promoter \
+    | bedtools slop -b $params.promoter_enhancer_distance_threshold -g $chrom_size -i - \
+    | sort -k1,1V -k2,2n \
+    | bedtools intersect -a - -b $enhancer -wa -wb \
+    | cut -f4,8 \
+    | awk -F "[\t:-]" '{print \$0, \$5-\$2}' > promoter_enhancer_pair.txt
+    """
+}
+
+process get_promoter_gene_pair {
+    tag "get_promoter_gene_pair"
+    label 'process_medium'
+    publishDir "${params.outdir}/regions/"
+    input:
+    tuple(val(name), file(promoter))
+
+    output:
+    file "promoter_gene_pair.txt"
+
+    script:
+    """
+    awk '{OFS="\t"; print \$1":"\$2"-"\$3, \$4}' $promoter > promoter_gene_pair.txt
+    """
+}
+
+
+
 process scan_test {
     // first scan motif then test, useful in region-level test
     tag "${name}"
@@ -348,19 +390,19 @@ process scan_test {
     """
 }
 
-process collect_results {
+process collect_chunk {
     tag "${name}"
     label 'process_heavy'
     publishDir "${params.outdir}/test/"
     input:
-    tuple val(name), file(chunk_results)
+    tuple val(name), val(chunk_path)
 
     output:
     file '*.npz'
 
     script:
     """
-    collect_results.py $name $chunk_results 
+    collect_results.py $name $chunk_path ./
     """
 }
 
@@ -379,77 +421,9 @@ process summarize {
 
     script:
     """
-    summarize.py ${name}*real.npz ${name}*perm.npz ${name}*profile.npz
+    summarize.py ${name}*real.npz ${name}*profile.npz
     """
 }
-
-if (params.fasta) { 
-    ch_fasta = Channel.fromPath(params.fasta)
-        .map { file -> tuple(file.baseName, file) }
-}
-
-if (params.enhancer) {
-    enhancer = Channel.fromPath( params.enhancer )
-    .map { file -> tuple(file.baseName, file) }
-    regions = enhancer
-}
-
-if (params.promoter) {
-    promoter = Channel.fromPath( params.promoter )
-    .map { file -> tuple(file.baseName, file) }
-    regions = promoter
-}
-
-if (params.enhancer && params.promoter) {
-    regions = enhancer.concat(promoter)
-}
-
-workflow region_test {
-    take: region_bed
-    main:
-    vcf = Channel.fromPath( params.vcf )
-    vcf_index = Channel.fromPath( params.vcf_index )
-    phenocov = Channel.fromPath( params.phenocov )
-    regions_fasta = get_region_ref_fasta(ch_fasta.combine(region_bed))
-    fasta_indexed = index_fasta(ch_fasta)
-    nuc_freq = count_nucleotide_frequency(regions_fasta)
-    motifs = get_hocomoco_motif_in_jaspar_format()
-        .flatten()
-        .first()
-        .map { file -> file.getParent() }
-    chunks_bed = chunkify_regions(region_bed)
-        .flatten()
-        .map { file -> tuple(file.baseName, file) }
-    chunks_vcf_indexed = get_region_chunk_vcf_indexed( chunks_bed.combine( vcf ).combine( vcf_index ) )
-    chunks_vcf_indexed = chunks_vcf_indexed[0]
-        .map { file -> tuple(file.simpleName, file) }
-        .merge(chunks_vcf_indexed[1])
-    chunks_bed_vcf = chunks_bed.join(chunks_vcf_indexed)
-    chunks_sample_fasta = get_sample_fasta {
-        chunks_bed_vcf
-            .combine(fasta_indexed)
-            .combine(phenocov) }
-    if ("$workflow.profile" =~ /conda/) {
-        glmpath = Channel.fromPath( "glmpath_0.98.tar.gz" )
-        prepared = conda_setup_dep(glmpath)
-    } else {
-        prepared = Channel.value(1)
-    }
-    results = scan_test {
-        chunks_sample_fasta
-            .map { file -> tuple(file.baseName, file) }
-            .combine(phenocov)
-            .combine(motifs)
-            .combine(nuc_freq)
-            .combine(prepared)
-            .filter { it[0].startsWith(it[4]) }
-    }
-        .unique()
-        .subscribe { println it }
-}
-
-// include 'modules/gene_test'
-
 
 // workflow summary {
 //     get: result_path
@@ -458,14 +432,128 @@ workflow region_test {
 
 // }
 
+process profile_test {
+    // test with out scan, useful for gene-level analysis
+    tag "${name}"
+    label 'process_heavy'
+    publishDir "${params.outdir}/test/chunks"
+    input:
+    tuple val(name), file(profiles)
+    file phenocov
+    tuple val(test_name), file(nuc_freq)
+
+    output:
+    file "*.npz"
+
+    script:
+    """
+    test.py -P $phenocov -o $name --permutation-size-multiplier $params.permutation_multiplier 
+    """
+}
+
+// workflow gene_test {
+//   get: tuple enhancer, promoter
+//   main:
+//   pe_pair = get_promoter_enhancer_pair(enhancer, promoter, chrom_size)
+//   pg_pair = get_promoter_gene_pair(promoter)
+  
+// }
+
 workflow {
     main:
     // Region-based test
-    if (regions) {
-        region_test(regions)
+    if ("$workflow.profile" =~ /conda/) {
+        glmpath = Channel.fromPath( "glmpath_0.98.tar.gz" )
+        prepared = conda_setup_dep(glmpath)
+    } else {
+        prepared = Channel.value(1)
     }
 
+    vcf = Channel
+        .fromPath( params.vcf, checkIfExists: true )
+        .ifEmpty { exit 1, "VCF file not found: ${params.vcf}" }
 
+    vcf_index = Channel
+        .fromPath( params.vcf_index, checkIfExists: true )
+        .ifEmpty { exit 1, "VCF file not found: ${params.vcf_index}" }
+
+    phenocov = Channel
+        .fromPath( params.phenocov, checkIfExists: true )
+        .ifEmpty { exit 1, "Phenotype & covariates file not found: ${params.phenocov}" }
+
+    if (params.fasta) { 
+        ch_fasta = Channel
+            .fromPath(params.fasta, checkIfExists: true)
+            .ifEmpty { exit 1, "Reference FASTA file not found: ${params.fasta}" }
+            .map { file -> tuple(file.baseName, file) }
+    }
+
+    if (params.enhancer) {
+        enhancer = Channel
+            .fromPath( params.enhancer, checkIfExists: true )
+            .ifEmpty { exit 1, "Enhancer BED file not found: ${params.enhancer}" }
+            .map { file -> tuple(file.baseName, file) }
+        regions = enhancer
+    }
+
+    if (params.promoter) {
+        promoter = Channel
+            .fromPath( params.promoter, checkIfExists: true )
+            .ifEmpty { exit 1, "Promoter BED file not found: ${params.promoter}" }
+            .map { file -> tuple(file.baseName, file) }
+        regions = promoter
+    }
+
+    if (params.other_regions) {
+        other_regions = Channel
+            .fromPath( params.other_regions, checkIfExists: true )
+            .ifEmpty { exit 1, "Other regions BED files not found: ${params.regions}" }
+            .map { file -> tuple(file.baseName, file) }
+        
+        regions = other_regions.concat(enhancer).concat(promoter).unique()
+    } else {
+        regions = enhancer.concat(promoter)
+    }
+
+    chrom_size = Channel
+        .fromPath( "test_input/hg19.chrom.sizes" )
+
+    promoter_enhancer_pair = get_promoter_enhancer_pair(promoter, enhancer, chrom_size)
+    promoter_gene_pair = get_promoter_gene_pair(promoter)
+
+    motifs = get_hocomoco_motif_in_jaspar_format()
+        .flatten()
+        .first()
+        .map { file -> file.getParent() }
+    regions_fasta = get_region_ref_fasta(ch_fasta.combine(regions))
+    fasta_indexed = index_fasta(ch_fasta)
+    nuc_freq = count_nucleotide_frequency(regions_fasta)
+
+    chunks_bed = chunkify_regions(regions)
+        .flatten()
+        .map { file -> tuple(file.baseName, file) }
+    chunks_vcf = get_region_chunk_vcf_indexed( chunks_bed.combine( vcf ).combine( vcf_index ) )
+    chunks_bed_vcf = chunks_bed.join (
+        chunks_vcf[0]
+            .map { file -> tuple(file.simpleName, file) }
+            .merge(chunks_vcf[1])
+    ).combine(fasta_indexed).combine(phenocov) 
+    chunks_sample_fasta = get_sample_fasta(chunks_bed_vcf)
+    results = scan_test {
+        chunks_sample_fasta
+            .map { file -> tuple(file.baseName, file) }
+            .combine(phenocov)
+            .combine(motifs)
+            .combine(nuc_freq)
+            .combine(prepared)
+            .filter { it[0].startsWith(it[4]) }
+    }.unique()
+
+    chunk_results = regions.map{
+        x -> tuple(x[0], "$baseDir/${params.outdir}/test/" + x[0] + "_chunks/")
+    }
+
+    collect_chunk(chunk_results)
 
     // Genes-based test
     // if (enhancer_profiles && promoter_profiles) {
