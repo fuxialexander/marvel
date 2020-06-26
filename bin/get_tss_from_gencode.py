@@ -138,8 +138,8 @@ negative.columns = ['seqname', 'start', 'end', 'gene_name']
 output = pd.concat([positive, negative], 0)
 
 if argv[3]:
-    output['start'] = output['start'].astype('int') - int(argv[3])
-    output['end'] = output['end'].astype('int') + int(argv[3])
+    output['start'] = output['start'].astype('int') - int(argv[3])/2
+    output['end'] = output['end'].astype('int') + int(argv[3])/2
 
 output.sort_values(['seqname', 'start']).to_csv(argv[2], sep='\t', na_rep='NA', header=False, index=False)
 

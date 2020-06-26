@@ -381,8 +381,6 @@ process get_promoter_gene_pair {
     """
 }
 
-
-
 process scan_test {
     // first scan motif then test, useful in region-level test
     tag "${name}"
