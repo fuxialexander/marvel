@@ -133,35 +133,32 @@ def test(x, y, covariates):
 
     return stat, sel, coefs
 
-    phenocov = pd.read_csv(args.phenocov_file, sep="\t")
-    phenocov = phenocov.sort_values("samples")
+phenocov = pd.read_csv(args.phenocov_file, sep="\t")
+phenocov = phenocov.sort_values("samples")
 
-    print("{}: scanning each regions".format(os.path.basename(__file__)), file=sys.stderr)
+y = phenocov.pheno.values
+covariates = phenocov.iloc[:,3:].values
+profiles = []
+stats = []
+sels = []
+coefs = []
+perm_stats = []
+perm_sels = []
 
+for profile in tqdm(profiles):
+    stat, sel, coef = test(profile, y, covariates)
+    stats.append(stat)
+    sels.append(sel)
+    coefs.append(coef)
 
-    y = phenocov.pheno.values
-    covariates = phenocov.iloc[:,3:].values
-    profiles = []
-    stats = []
-    sels = []
-    coefs = []
-    perm_stats = []
-    perm_sels = []
+    perm_stat, perm_sel = perm_test(profile, y, covariates)
+    perm_stats.append(perm_stat)
+    perm_sels.append(perm_sel)
 
-    for profile in tqdm(profiles):
-        stat, sel, coef = test(profile, y, covariates)
-        stats.append(stat)
-        sels.append(sel)
-        coefs.append(coef)
-
-        perm_stat, perm_sel = perm_test(profile, y, covariates)
-        perm_stats.append(perm_stat)
-        perm_sels.append(perm_sel)
-
-    stats = np.array(stats)
-    sels = np.array(sels)
-    coefs = np.array(coefs)
-    perm_stats = np.array(perm_stats)
-    perm_sels = np.array(perm_sels)
-    np.savez(file=args.output_file+"_real_results.npz", stats=stats, sels=sels, coefs=coefs)
-    np.savez(file=args.output_file+"_perm_results.npz", stats=perm_stats, sels=perm_sels)
+stats = np.array(stats)
+sels = np.array(sels)
+coefs = np.array(coefs)
+perm_stats = np.array(perm_stats)
+perm_sels = np.array(perm_sels)
+np.savez(file=args.output_file+"_real_results.npz", stats=stats, sels=sels, coefs=coefs)
+np.savez(file=args.output_file+"_perm_results.npz", stats=perm_stats, sels=perm_sels)

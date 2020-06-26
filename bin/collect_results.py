@@ -2,20 +2,23 @@
 # -*- coding: utf-8 -*-
 import argparse
 from glob import glob
-
+import pandas as pd
 import numpy as np
 from scipy.sparse import load_npz, save_npz, vstack
 from statsmodels.sandbox.stats.multicomp import fdrcorrection0
 
 # argument
 parser = argparse.ArgumentParser()
-parser.add_argument("region_type", default="",type=str,
+parser.add_argument('-n', "--region-name", default="", type=str, required=True,
                     help="Type of region, e.g. enhancer or promoter")
-parser.add_argument("result_path", default="",type=str,
+parser.add_argument('-r', "--result-path", default="", type=str, required=True,
                     help="path of chunk testing results")
-parser.add_argument("output_path", default="./", type=str, help="output directory")
+parser.add_argument('-a', "--region_annotation", default="", type=str, required=False, help="path of region annotation file")
+parser.add_argument('-o', "--output_path", default="./", required=True,type=str, help="output directory")
 args = parser.parse_args()
 
+if args.region_annotation:
+    regions_annotations = pd.read_csv(args.region_annotation, header=None)
 # load profiles
 profiles = []
 
@@ -33,7 +36,6 @@ coefs = []
 for i in sorted(glob(args.result_path + "*real_results.npz")):
     regions.append(np.load(i, 'r', True)['regions'])
     stats.append(np.load(i, 'r', True)['stats'])
-    # print([np.array(i) for i in np.load(i, 'r', True,)['sels']])
     sels.append([np.array(i) for i in np.load(i, 'r', True,)['sels']])
     coefs.append([np.array(i) for i in np.load(i, 'r', True,)['coefs']])
 
@@ -63,7 +65,7 @@ pvals[pvals == 0] = 1/float(len(all_stats))
 _, fdrs = fdrcorrection0(pvals)
 
 # save results
-np.savez(args.output_path + args.region_type + '_results.npz',
+np.savez(args.output_path + args.region_name + '_results.npz',
          regions=regions,
          pvals=pvals,
          fdrs=fdrs,
@@ -74,5 +76,4 @@ np.savez(args.output_path + args.region_type + '_results.npz',
          )
 
 # save profiles
-save_npz(args.output_path + args.region_type + '_profiles.npz', profiles)
-
+save_npz(args.output_path + args.region_name + '_profiles.npz', profiles)

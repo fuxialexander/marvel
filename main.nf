@@ -156,7 +156,6 @@ process get_software_versions {
     """
 }
 
-
 /*
  * STEP 1 - Get Region Fasta
  */
@@ -259,6 +258,20 @@ process get_hocomoco_motif_in_jaspar_format {
     """
 }
 
+process get_hocomoco_motif_annotation {
+    tag "${name}"
+    label 'process_light'
+    publishDir "${params.outdir}/motifs"
+
+    output:
+    file "*.tsv"
+
+    script:
+    """
+    wget https://hocomoco11.autosome.ru/final_bundle/hocomoco11/full/HUMAN/mono/HOCOMOCOv11_full_annotation_HUMAN_mono.tsv
+    """
+}
+
 process chunkify_regions {
     tag "${name}"
     label 'process_light'
@@ -343,12 +356,12 @@ process get_promoter_enhancer_pair {
 
     script:
     """
-    awk '{OFS="\t"; print \$1,\$2,\$3,\$1":"\$2"-"\$3}' $promoter \
+    awk '{OFS="\t"; print \$1,\$2,\$3,\$1":"\$2+1"-"\$3}' $promoter \
     | bedtools slop -b $params.promoter_enhancer_distance_threshold -g $chrom_size -i - \
     | sort -k1,1V -k2,2n \
     | bedtools intersect -a - -b $enhancer -wa -wb \
     | cut -f4,8 \
-    | awk -F "[\t:-]" '{print \$0, \$5-\$2}' > promoter_enhancer_pair.txt
+    | awk -F "[\t:-]" '{OFS="\t"; print \$0, \$5-\$2}' > promoter_enhancer_pair.txt
     """
 }
 
@@ -364,7 +377,7 @@ process get_promoter_gene_pair {
 
     script:
     """
-    awk '{OFS="\t"; print \$1":"\$2"-"\$3, \$4}' $promoter > promoter_gene_pair.txt
+    awk '{OFS="\t"; print \$1":"\$2+1"-"\$3, \$4}' $promoter > promoter_gene_pair.txt
     """
 }
 
@@ -390,7 +403,23 @@ process scan_test {
     """
 }
 
-process collect_chunk {
+process collect_region_chunk {
+    tag "${name}"
+    label 'process_heavy'
+    publishDir "${params.outdir}/test/"
+    input:
+    tuple val(name), val(chunk_path), val(region_bed)
+
+    output:
+    tuple(file('*profiles.npz'), file('*results.npz'))
+
+    script:
+    """
+    collect_results.py -n $name -r $chunk_path -a $region_bed -o ./
+    """
+}
+
+process collect_gene_chunk {
     tag "${name}"
     label 'process_heavy'
     publishDir "${params.outdir}/test/"
@@ -398,42 +427,55 @@ process collect_chunk {
     tuple val(name), val(chunk_path)
 
     output:
-    file '*.npz'
+    tuple(file('*profiles.npz'), file('*results.npz'))
 
     script:
     """
-    collect_results.py $name $chunk_path ./
+    collect_results.py -n $name -r $chunk_path -o ./
     """
 }
 
-process summarize {
+
+process region_summarize {
     // Summarize result and plot qq-plots, AUROC, etc
     tag "${name}"
     label 'process_medium'
     publishDir "${params.outdir}/summary/"
     input:
-    tuple val(name), file(results)
-    file phenocov
+    tuple(file(profile), file(results), file(phenocov), file(motifs), file(motif_annotations)) 
+
 
     output:
     file "*.pdf"
-    file "*.xlsx"
+    file "*.csv"
 
     script:
     """
-    summarize.py ${name}*real.npz ${name}*profile.npz
+    summarize.py -p $profile -r $results -f $phenocov -m $motifs -a $motif_annotations -c $params.fdr_cutoff
     """
 }
 
-// workflow summary {
-//     get: result_path
-//     main:
-//     results = Channel.fromPath(result_path)
 
-// }
+process gene_summarize {
+    // Summarize result and plot qq-plots, AUROC, etc
+    tag "${name}"
+    label 'process_medium'
+    publishDir "${params.outdir}/summary/"
+    input:
+    tuple(file(profile), file(results), file(phenocov), file(motifs), file(motif_annotations)) 
+
+
+    output:
+    file "*.pdf"
+    file "*.csv"
+
+    script:
+    """
+    summarize.py -p $profile -r $results -f $phenocov -m $motifs -a $motif_annotations -c $params.fdr_cutoff
+    """
+}
 
 process profile_test {
-    // test with out scan, useful for gene-level analysis
     tag "${name}"
     label 'process_heavy'
     publishDir "${params.outdir}/test/chunks"
@@ -451,13 +493,22 @@ process profile_test {
     """
 }
 
-// workflow gene_test {
-//   get: tuple enhancer, promoter
-//   main:
-//   pe_pair = get_promoter_enhancer_pair(enhancer, promoter, chrom_size)
-//   pg_pair = get_promoter_gene_pair(promoter)
-  
-// }
+process gene_test {
+    tag "${name}"
+    label 'process_heavy'
+    publishDir "${params.outdir}/test/gene_chunks/"
+    input:
+    tuple file(collected_region_results), file(phenocov), file(motifs), file(promoter_enhancer_pair), file(promoter_gene_pair), file(weights)
+
+    output:
+    file "gene*.npz"
+
+    script:
+    """
+    gene_test.py -n $params.permutation_multiplier -m $motifs -r $collected_region_results
+    """
+}
+
 
 workflow {
     main:
@@ -552,13 +603,25 @@ workflow {
     chunk_results = regions.map{
         x -> tuple(x[0], "$baseDir/${params.outdir}/test/" + x[0] + "_chunks/")
     }
+    
+    chunk_results.join(regions)
 
-    collect_chunk(chunk_results)
+    collected_region_results = collect_region_chunk(chunk_results.join(regions))
 
+    motif_annotation = get_hocomoco_motif_annotation()
+    region_summarize(collected_region_results.combine(phenocov).combine(motifs).combine(motif_annotation))
+    
+    weights = Channel.fromPath(params.weights, checkIfExists: true)
+        .ifEmpty { exit 1, "Weights file not found: ${params.weights}" }
     // Genes-based test
-    // if (enhancer_profiles && promoter_profiles) {
-    //   gene_test(enhancers, promoters)
-    // }
+    if (collected_region_results) {
+      gene_test(Channel.fromPath("$baseDir/${params.outdir}/test").combine(phenocov).combine(motifs).combine(promoter_enhancer_pair).combine(promoter_gene_pair).combine(weights))
+    }
+
+    collected_gene_results = collect_gene_chunk(Channel.value(tuple("gene", "$baseDir/${params.outdir}/test/gene_chunks/")))
+
+    gene_summarize(collected_gene_results.combine(phenocov).combine(motifs).combine(motif_annotation))
+    
 }
 
 /*
