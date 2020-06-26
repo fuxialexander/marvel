@@ -65,7 +65,7 @@ pvals[pvals == 0] = 1/float(len(all_stats))
 _, fdrs = fdrcorrection0(pvals)
 
 # save results
-np.savez(args.output_path + args.region_name + '_results.npz',
+np.savez(args.output_path + args.region_name + '_results.collected.npz',
          regions=regions,
          pvals=pvals,
          fdrs=fdrs,
@@ -76,4 +76,4 @@ np.savez(args.output_path + args.region_name + '_results.npz',
          )
 
 # save profiles
-save_npz(args.output_path + args.region_name + '_profiles.npz', profiles)
+save_npz(args.output_path + args.region_name + '_profiles.collected.npz', profiles)

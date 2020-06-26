@@ -390,7 +390,7 @@ process scan_test {
     tuple val(name), file(fa), file(phenocov), file(motifs), val(test_name), file(nuc_freq), val(prepared)
 
     output:
-    file '*.npz'
+    file('*.npz')
 
     script:
     """
@@ -406,14 +406,13 @@ process collect_region_chunk {
     label 'process_heavy'
     publishDir "${params.outdir}/test/"
     input:
-    tuple val(name), val(chunk_path), val(region_bed)
-
+    tuple val(name), val(region_bed), file(chunk_results)
     output:
-    tuple(file('*profiles.npz'), file('*results.npz'))
+    tuple(file('*profiles.collected.npz'), file('*results.collected.npz'))
 
     script:
     """
-    collect_results.py -n $name -r $chunk_path -a $region_bed -o ./
+    collect_results.py -n $name -r ./ -a $region_bed -o ./
     """
 }
 
@@ -422,14 +421,14 @@ process collect_gene_chunk {
     label 'process_heavy'
     publishDir "${params.outdir}/test/"
     input:
-    tuple val(name), val(chunk_path)
+    file(chunk_results)
 
     output:
-    tuple(file('*profiles.npz'), file('*results.npz'))
+    tuple(file('*profiles.collected.npz'), file('*results.collected.npz'))
 
     script:
     """
-    collect_results.py -n $name -r $chunk_path -o ./
+    collect_results.py -n gene -r ./ -o ./
     """
 }
 
@@ -443,8 +442,9 @@ process region_summarize {
 
 
     output:
-    file "*.pdf"
-    file "*.csv"
+    val(1)
+    file("*.pdf")
+    file("*.csv")
 
     script:
     """
@@ -512,11 +512,11 @@ process gene_test {
     tuple file(collected_region_results), file(phenocov), file(motifs), file(promoter_enhancer_pair), val(name), file(promoter_gene_pair), file(weights)
 
     output:
-    file "${name}*.npz"
+    file("${name}*.npz")
 
     script:
     """
-    gene_test.py -n $params.permutation_multiplier -g $promoter_gene_pair -m $motifs -r $collected_region_results -o $name
+    gene_test.py -n $params.permutation_multiplier -g $promoter_gene_pair -m $motifs -r . -o $name
     """
 }
 
@@ -614,23 +614,25 @@ workflow {
     ).combine(fasta_indexed).combine(phenocov)
     chunks_sample_fasta = get_sample_fasta(chunks_bed_vcf)
 
-    results = scan_test {
-        chunks_sample_fasta
-            .map { file -> tuple(file.baseName, file) }
-            .combine(phenocov)
-            .combine(motifs)
-            .combine(nuc_freq)
-            .combine(prepared)
-            .filter { it[0].startsWith(it[4]) }
-    }.unique()
+    scan_input = chunks_sample_fasta
+        .map { file -> tuple(file.baseName, file) }
+        .combine(phenocov)
+        .combine(motifs)
+        .combine(nuc_freq)
+        .combine(prepared)
+        .filter { it[0].startsWith(it[4]) }
 
-    chunk_results = regions.map{
-        x -> tuple(x[0], "$baseDir/${params.outdir}/test/" + x[0] + "_chunks/")
-    }
+    scan_test_result = scan_test(scan_input)
 
-    collected_region_results = collect_region_chunk(chunk_results.join(regions))
+    collected_region_results = collect_region_chunk(
+        regions.combine(
+            scan_test_result
+                .collect()
+                .toList()
+        )
+    )
 
-    region_summarize {
+    region_tested = region_summarize {
         collected_region_results
             .combine(phenocov)
             .combine(motifs)
@@ -646,9 +648,10 @@ workflow {
         .map { file -> tuple(file.simpleName, file) }
 
     if (collected_region_results) {
-        gene_test {
-            Channel
-                .fromPath("$baseDir/${params.outdir}/test")
+        gene_tested = gene_test {
+            collected_region_results
+                .collect()
+                .toList()
                 .combine(phenocov)
                 .combine(motifs)
                 .combine(promoter_enhancer_pair)
@@ -657,9 +660,10 @@ workflow {
         }
     }
 
-    collected_gene_results = collect_gene_chunk{
-        Channel
-        .value(tuple("gene", "$baseDir/${params.outdir}/test/gene_chunks/"))
+    if (promoter_gene_pair_chunks) {
+        collected_gene_results = collect_gene_chunk{
+            gene_tested.collect()
+        }
     }
 
     gene_summarize {

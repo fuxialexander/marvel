@@ -237,10 +237,10 @@ parser.add_argument('-o', "--output-file", default="gene",
                     type=str, help="output directory")
 args = parser.parse_args()
 
-enhancer_results = np.load(args.results + '/enhancer_results.npz', allow_pickle=True)
-promoter_results = np.load(args.results + '/promoter_results.npz', allow_pickle=True)
-enhancer_profiles = load_npz(args.results + '/enhancer_profiles.npz')
-promoter_profiles = load_npz(args.results + '/promoter_profiles.npz')
+enhancer_results = np.load(args.results + '/enhancer_results.collected.npz', allow_pickle=True)
+promoter_results = np.load(args.results + '/promoter_results.collected.npz', allow_pickle=True)
+enhancer_profiles = load_npz(args.results + '/enhancer_profiles.collected.npz')
+promoter_profiles = load_npz(args.results + '/promoter_profiles.collected.npz')
 ep_dis, ep_pair = get_pe(args.promoter_enhancer_pair)
 pg_pair, glist = get_pg(args.promoter_gene_pair)
 distance_breaks = pd.read_csv(args.weights)['breaks']
