@@ -37,7 +37,7 @@ parser.add_argument('-m','--motifs', type=str,
                     help='Path to motif PWMs')
 parser.add_argument('-a','--motif_annotation', type=str,
                     help='Motif annotation file')
-parser.add_argument('-c', '--fdr-cutoff', type=str,
+parser.add_argument('-c', '--fdr-cutoff', type=float,
                     help='FDR cutoff of table output')
 args = parser.parse_args()
 
@@ -187,7 +187,11 @@ def myqqplot(data, labels, n_quantiles=100, alpha=0.95, error_type='theoretical'
                 q_data[:n_quantiles]), '.', color=color[j], label=labels[j])
             xmax = np.max([xmax, - np.log10(q_th[1])])
             ymax = np.max([ymax, - np.log10(q_data[0])])
-            # print(- np.log10(q_th[:]))
+
+            if fdrcorrection0(data[j], args.fdr_cutoff)[0].sum() > 0:
+                fdr_line = -np.log10(data[j][fdrcorrection0(data[j], args.fdr_cutoff)[0]].max())
+                plt.hlines(y=fdr_line, xmin=0, xmax=xmax)
+
             if np.sum(alpha) > 0:
                 if error_type == 'experimental':
                     plt.fill_between(-np.log10(q_th), -np.log10(q_data/q_th*q_err[:, 0]), -np.log10(
@@ -219,7 +223,7 @@ def p_plot_qqplot(pvals, filename, distribution='beta', error_type='theoretical'
 
 p_plot_qqplot(pvals, RESULTS_NAME+"_qqplot.pdf")  # "fantom_qqplot.pdf"
 
-print_regions_table(RESULTS_NAME, np.where(fdrs<float(args.fdr_cutoff))[0], regions, regions, pvals, fdrs, sels, coefs, profiles)
+print_regions_table(RESULTS_NAME, np.where(fdrs<args.fdr_cutoff)[0], regions, regions, pvals, fdrs, sels, coefs, profiles)
 
 
 # %%
