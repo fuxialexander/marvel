@@ -433,7 +433,6 @@ process collect_gene_chunk {
     """
 }
 
-
 process region_summarize {
     // Summarize result and plot qq-plots, AUROC, etc
     tag "${name}"
@@ -452,7 +451,6 @@ process region_summarize {
     summarize.py -p $profile -r $results -f $phenocov -m $motifs -a $motif_annotations -c $params.fdr_cutoff
     """
 }
-
 
 process gene_summarize {
     // Summarize result and plot qq-plots, AUROC, etc
@@ -491,22 +489,36 @@ process profile_test {
     """
 }
 
+process chunkify_genes {
+    label 'process_light'
+    publishDir "${params.outdir}/test/gene_chunks/"
+    input:
+    file(promoter_gene_pair)
+
+    output:
+    file "promoter_gene_pair_*.txt"
+
+    script:
+    """
+    chunkify_genes.py -i $promoter_gene_pair -n $params.chunk_size -o .
+    """
+}
+
 process gene_test {
     tag "${name}"
     label 'process_heavy'
     publishDir "${params.outdir}/test/gene_chunks/"
     input:
-    tuple file(collected_region_results), file(phenocov), file(motifs), file(promoter_enhancer_pair), file(promoter_gene_pair), file(weights)
+    tuple file(collected_region_results), file(phenocov), file(motifs), file(promoter_enhancer_pair), val(name), file(promoter_gene_pair), file(weights)
 
     output:
-    file "gene*.npz"
+    file "${name}*.npz"
 
     script:
     """
-    gene_test.py -n $params.permutation_multiplier -m $motifs -r $collected_region_results
+    gene_test.py -n $params.permutation_multiplier -g $promoter_gene_pair -m $motifs -r $collected_region_results -o $name
     """
 }
-
 
 workflow {
     main:
@@ -559,35 +571,49 @@ workflow {
             .ifEmpty { exit 1, "Other regions BED files not found: ${params.regions}" }
             .map { file -> tuple(file.baseName, file) }
         
-        regions = other_regions.concat(enhancer).concat(promoter).unique()
+        regions = other_regions
+            .concat(enhancer)
+            .concat(promoter)
+            .unique()
     } else {
-        regions = enhancer.concat(promoter)
+        regions = enhancer
+            .concat(promoter)
     }
 
     chrom_size = Channel
-        .fromPath( "test_input/hg19.chrom.sizes" )
+        .fromPath( params.chrom_size, checkIfExists: true )
+        .ifEmpty { exit 1, "Chrom size file not found: ${params.chrom_size}" }
+        
 
     promoter_enhancer_pair = get_promoter_enhancer_pair(promoter, enhancer, chrom_size)
     promoter_gene_pair = get_promoter_gene_pair(promoter)
+        regions_fasta = get_region_ref_fasta(ch_fasta.combine(regions))
+    fasta_indexed = index_fasta(ch_fasta)
+    nuc_freq = count_nucleotide_frequency(regions_fasta)
+    motif_annotation = get_hocomoco_motif_annotation()
 
     motifs = get_hocomoco_motif_in_jaspar_format()
         .flatten()
         .first()
         .map { file -> file.getParent() }
-    regions_fasta = get_region_ref_fasta(ch_fasta.combine(regions))
-    fasta_indexed = index_fasta(ch_fasta)
-    nuc_freq = count_nucleotide_frequency(regions_fasta)
 
     chunks_bed = chunkify_regions(regions)
         .flatten()
         .map { file -> tuple(file.baseName, file) }
-    chunks_vcf = get_region_chunk_vcf_indexed( chunks_bed.combine( vcf ).combine( vcf_index ) )
+
+    chunks_vcf = get_region_chunk_vcf_indexed{ 
+        chunks_bed
+            .combine( vcf )
+            .combine( vcf_index ) 
+    }
+
     chunks_bed_vcf = chunks_bed.join (
         chunks_vcf[0]
             .map { file -> tuple(file.simpleName, file) }
             .merge(chunks_vcf[1])
-    ).combine(fasta_indexed).combine(phenocov) 
+    ).combine(fasta_indexed).combine(phenocov)
     chunks_sample_fasta = get_sample_fasta(chunks_bed_vcf)
+
     results = scan_test {
         chunks_sample_fasta
             .map { file -> tuple(file.baseName, file) }
@@ -601,24 +627,47 @@ workflow {
     chunk_results = regions.map{
         x -> tuple(x[0], "$baseDir/${params.outdir}/test/" + x[0] + "_chunks/")
     }
-    
-    chunk_results.join(regions)
 
     collected_region_results = collect_region_chunk(chunk_results.join(regions))
 
-    motif_annotation = get_hocomoco_motif_annotation()
-    region_summarize(collected_region_results.combine(phenocov).combine(motifs).combine(motif_annotation))
+    region_summarize {
+        collected_region_results
+            .combine(phenocov)
+            .combine(motifs)
+            .combine(motif_annotation)
+    }
     
+    // Gene-based test
     weights = Channel.fromPath(params.weights, checkIfExists: true)
         .ifEmpty { exit 1, "Weights file not found: ${params.weights}" }
-    // Genes-based test
+
+    promoter_gene_pair_chunks = chunkify_genes(promoter_gene_pair)
+        .flatten()
+        .map { file -> tuple(file.simpleName, file) }
+
     if (collected_region_results) {
-      gene_test(Channel.fromPath("$baseDir/${params.outdir}/test").combine(phenocov).combine(motifs).combine(promoter_enhancer_pair).combine(promoter_gene_pair).combine(weights))
+        gene_test {
+            Channel
+                .fromPath("$baseDir/${params.outdir}/test")
+                .combine(phenocov)
+                .combine(motifs)
+                .combine(promoter_enhancer_pair)
+                .combine(promoter_gene_pair_chunks)
+                .combine(weights)
+        }
     }
 
-    collected_gene_results = collect_gene_chunk(Channel.value(tuple("gene", "$baseDir/${params.outdir}/test/gene_chunks/")))
+    collected_gene_results = collect_gene_chunk{
+        Channel
+        .value(tuple("gene", "$baseDir/${params.outdir}/test/gene_chunks/"))
+    }
 
-    gene_summarize(collected_gene_results.combine(phenocov).combine(motifs).combine(motif_annotation))
+    gene_summarize {
+        collected_gene_results
+            .combine(phenocov)
+            .combine(motifs)
+            .combine(motif_annotation)
+    }
     
 }
 
