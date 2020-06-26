@@ -26,17 +26,19 @@ and add it to your path. The reason is the normal release has a bug in conda int
 
 ii. Install one of [`docker`](https://docs.docker.com/engine/installation/), [`singularity`](https://www.sylabs.io/guides/3.0/user-guide/) or [`conda`](https://conda.io/miniconda.html)
 
-iii. Download the pipeline and test it on a minimal dataset with a single command
+iii. Clone the repo and test it on a minimal dataset
 
 ```bash
-nextflow run fuxialexander/marvel -profile test,<docker/singularity/conda>
+git clone https://github.com/fuxialexander/marvel.git
+cd marvel
+nextflow main.nf -profile test,<docker/singularity/conda> -resume
 ```
 
-iv. Start running your own analysis!
+iv. Look into nextflow.config and test/test.conf and modify it to start running your own analysis!
 
 <!-- TODO nf-core: Update the default command above used to run the pipeline -->
 ```bash
-nextflow run fuxialexander/marvel -profile <docker/singularity/conda> --regions "input/regions/*.bed" 
+nextflow main.nf -profile <docker/singularity/conda> -resume
 ```
 
 See [usage docs](docs/usage.md) for all of the available options when running the pipeline.
