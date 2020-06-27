@@ -1,5 +1,5 @@
 {
-    "python.pythonPath": "work/conda/nf-core-marvel-1.1dev-27ada4a52954e6099e8cbf65dc62e8f7/bin/python",
+    "python.pythonPath": "work/conda/fuxialexander-marvel-1.1dev-abc81799ef382684eb58f35e5093dcd2/bin/python",
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": true
 }

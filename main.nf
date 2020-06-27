@@ -314,6 +314,7 @@ process get_sample_fasta {
     tag "${name}"
     label 'process_high'
     cache 'lenient'
+    validExitStatus 0,255 
     publishDir "${params.outdir}/sequences/chunks"
 
     input:
