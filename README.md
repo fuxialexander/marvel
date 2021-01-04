@@ -26,6 +26,14 @@ and add it to your path. The reason is the normal release has a bug in conda int
 ii. Install one of [`docker`](https://docs.docker.com/engine/installation/), [`singularity`](https://www.sylabs.io/guides/3.0/user-guide/) or [`conda`](https://conda.io/miniconda.html)
 
 iii. Clone the repo and test it on a minimal dataset
+**Notice: the test.vcf.gz and pheno_covar.txt file were temporarily removed as they were made from real genomics data.**
+Basically:
+For test.vcf.gz: you can use bcftools to select variants in a small regions to produce a VCF with genotypes of multiple samples
+For pheno_covar.txt:
+- It's a TSV file
+- First column is sample name (in the same order as in the VCF file)
+- Second column is y/phenotype in 0, 1 coding
+- Third or later columns are covariates (all numeric)
 
 ```bash
 git clone https://github.com/fuxialexander/marvel.git
