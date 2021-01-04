@@ -27,8 +27,11 @@ ii. Install one of [`docker`](https://docs.docker.com/engine/installation/), [`s
 
 iii. Clone the repo and test it on a minimal dataset
 **Notice: the test.vcf.gz and pheno_covar.txt file were temporarily removed as they were made from real genomics data.**
+
 Basically:
+
 For test.vcf.gz: you can use bcftools to select variants in a small regions to produce a VCF with genotypes of multiple samples
+
 For pheno_covar.txt:
 - It's a TSV file
 - First column is sample name (in the same order as in the VCF file)
