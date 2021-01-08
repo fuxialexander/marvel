@@ -21,8 +21,12 @@ if args.region_annotation:
     regions_annotations = pd.read_csv(args.region_annotation, header=None)
 # load profiles
 profiles = []
+if args.region_name=="gene":
+    name_prefix = args.result_path + "promoter_gene_pair"
+else:
+    name_prefix = args.result_path + args.region_name
 
-for i in sorted(glob(args.result_path + args.region_name + "*_profiles.npz")):
+for i in sorted(glob(name_prefix + "*_profiles.npz")):
     profiles.append(load_npz(i))
 
 profiles = vstack(profiles)
@@ -33,7 +37,7 @@ stats = []
 sels = []
 coefs = []
 
-for i in sorted(glob(args.result_path + args.region_name + "*real_results.npz")):
+for i in sorted(glob(name_prefix + "*real_results.npz")):
     regions.append(np.load(i, 'r', True)['regions'])
     stats.append(np.load(i, 'r', True)['stats'])
     sels.append([np.array(i) for i in np.load(i, 'r', True,)['sels']])
@@ -46,7 +50,7 @@ coefs = np.array(sum(coefs, []))
 
 # load permutation stats
 perm_stats = []
-for i in sorted(glob(args.result_path + args.region_name + "*perm_results.npz")):
+for i in sorted(glob(name_prefix + "*perm_results.npz")):
     perm_stats.append(np.load(i, 'r', True)['stats'])
 
 perm_stats = np.concatenate(perm_stats)
