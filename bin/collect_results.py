@@ -22,7 +22,7 @@ if args.region_annotation:
 # load profiles
 profiles = []
 
-for i in sorted(glob(args.result_path + "*_profiles.npz")):
+for i in sorted(glob(args.result_path + args.region_name + "*_profiles.npz")):
     profiles.append(load_npz(i))
 
 profiles = vstack(profiles)
@@ -33,7 +33,7 @@ stats = []
 sels = []
 coefs = []
 
-for i in sorted(glob(args.result_path + "*real_results.npz")):
+for i in sorted(glob(args.result_path + args.region_name + "*real_results.npz")):
     regions.append(np.load(i, 'r', True)['regions'])
     stats.append(np.load(i, 'r', True)['stats'])
     sels.append([np.array(i) for i in np.load(i, 'r', True,)['sels']])
@@ -46,7 +46,7 @@ coefs = np.array(sum(coefs, []))
 
 # load permutation stats
 perm_stats = []
-for i in sorted(glob(args.result_path + "*perm_results.npz")):
+for i in sorted(glob(args.result_path + args.region_name + "*perm_results.npz")):
     perm_stats.append(np.load(i, 'r', True)['stats'])
 
 perm_stats = np.concatenate(perm_stats)
