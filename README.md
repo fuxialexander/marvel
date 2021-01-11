@@ -73,11 +73,5 @@ MARVEL is implemented using a boilerplate created by the nf-core team (https://n
 
 ## Citation
 
-<!-- TODO: to be updated -->
 If you use MARVEL for your analysis, please cite it as: 
-
-Alexander Xi Fu*, Kathy Nga-Chu Lui*, Clara Sze-Man Tang, Ray Kit Ng, Frank Pui-Ling Lai, Sin-Ting
-Lau, Zhixin Li, Maria-Mercè Gracia-Barcelo, Pak-Chung Sham, Paul Kwang-Hang Tam, Elly Sau-Wai
-Ngan and Kevin Y. Yip. Whole-genome analysis of noncoding genetic variations identifies
-multigranular regulatory element perturbations associated with Hirschsprung disease. (2020)
-(DOI AND JOURNAL TO BE ADDED).
+Fu AX, Lui KN, Tang CS, Ng RK, Lai FP, Lau ST, Li Z, Garcia-Barcelo MM, Sham PC, Tam PK, Ngan ES, Yip KY. Whole-genome analysis of noncoding genetic variations identifies multiscale regulatory element perturbations associated with Hirschsprung disease. Genome Res. 2020 Nov;30(11):1618-1632. doi: 10.1101/gr.264473.120.
